@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   User,
@@ -14,7 +15,9 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 const menuItems = [
   {
@@ -63,7 +66,74 @@ const menuItems = [
   },
 ];
 
+interface Profile {
+  name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+}
+
 export function Profile() {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [stats, setStats] = useState({
+    daysActive: 0,
+    locations: 0,
+    predictions: 0,
+  });
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+      fetchStats();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("name, email, avatar_url")
+      .eq("user_id", user.id)
+      .single();
+    
+    if (data) {
+      setProfile(data);
+    }
+  };
+
+  const fetchStats = async () => {
+    if (!user) return;
+    
+    // Count location logs
+    const { count: locCount } = await supabase
+      .from("location_logs")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    // Count predictions
+    const { count: predCount } = await supabase
+      .from("predictions")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    // Calculate days since signup
+    const signupDate = new Date(user.created_at);
+    const today = new Date();
+    const daysActive = Math.floor((today.getTime() - signupDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    setStats({
+      daysActive,
+      locations: locCount || 0,
+      predictions: predCount || 0,
+    });
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
   return (
     <div className="min-h-screen bg-background pb-32">
       {/* Header */}
@@ -92,21 +162,25 @@ export function Profile() {
 
             <div className="relative flex items-center gap-4">
               <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center">
-                <User className="w-8 h-8 text-primary-foreground" />
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full rounded-2xl object-cover" />
+                ) : (
+                  <User className="w-8 h-8 text-primary-foreground" />
+                )}
               </div>
               <div className="flex-1">
                 <h2 className="text-lg font-semibold text-foreground">
-                  John Doe
+                  {profile?.name || user?.email?.split("@")[0] || "User"}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  john.doe@example.com
+                  {profile?.email || user?.email}
                 </p>
                 <div className="flex items-center gap-2 mt-2">
                   <div className="px-2 py-0.5 rounded-full bg-success/20 text-success text-xs font-medium">
-                    Premium
+                    Active
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    Since Jan 2024
+                    Since {user?.created_at ? new Date(user.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "N/A"}
                   </span>
                 </div>
               </div>
@@ -127,10 +201,10 @@ export function Profile() {
       >
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "Days Active", value: "45" },
-            { label: "Locations", value: "128" },
-            { label: "Predictions", value: "312" },
-          ].map((stat, index) => (
+            { label: "Days Active", value: stats.daysActive.toString() },
+            { label: "Locations", value: stats.locations.toString() },
+            { label: "Predictions", value: stats.predictions.toString() },
+          ].map((stat) => (
             <div
               key={stat.label}
               className="text-center p-3 rounded-2xl bg-card border border-border"
@@ -188,7 +262,11 @@ export function Profile() {
         transition={{ delay: 0.7 }}
         className="px-4 mt-6"
       >
-        <Button variant="outline" className="w-full gap-2 h-12 text-destructive border-destructive/30 hover:bg-destructive/10">
+        <Button 
+          variant="outline" 
+          className="w-full gap-2 h-12 text-destructive border-destructive/30 hover:bg-destructive/10"
+          onClick={handleSignOut}
+        >
           <LogOut className="w-4 h-4" />
           Sign Out
         </Button>

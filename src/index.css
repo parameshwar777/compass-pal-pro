@@ -6,139 +6,139 @@
 
 @layer base {
   :root {
-    /* Core Background Layers */
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
+    /* Core Background Layers - Deep Space Purple */
+    --background: 260 35% 9%;
+    --foreground: 270 20% 98%;
 
     /* Card & Surface */
-    --card: 222 47% 14%;
-    --card-foreground: 210 40% 98%;
+    --card: 260 35% 12%;
+    --card-foreground: 270 20% 98%;
 
     /* Popover */
-    --popover: 222 47% 12%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 260 35% 10%;
+    --popover-foreground: 270 20% 98%;
 
-    /* Primary - Deep Navy */
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
+    /* Primary - Vibrant Violet */
+    --primary: 270 80% 60%;
+    --primary-foreground: 260 35% 9%;
 
-    /* Secondary - Subtle Surface */
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    /* Secondary - Muted Purple Surface */
+    --secondary: 260 30% 16%;
+    --secondary-foreground: 270 20% 98%;
 
     /* Muted */
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 260 30% 16%;
+    --muted-foreground: 260 15% 60%;
 
-    /* Accent - Cyan/Teal for Location */
-    --accent: 187 85% 53%;
-    --accent-foreground: 222 47% 11%;
+    /* Accent - Electric Purple/Magenta */
+    --accent: 280 85% 65%;
+    --accent-foreground: 260 35% 9%;
 
     /* Destructive - Emergency Red */
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 270 20% 98%;
 
     /* Success - Safe Green */
-    --success: 142 76% 36%;
-    --success-foreground: 210 40% 98%;
+    --success: 160 84% 39%;
+    --success-foreground: 270 20% 98%;
 
     /* Warning - Amber */
     --warning: 38 92% 50%;
-    --warning-foreground: 222 47% 11%;
+    --warning-foreground: 260 35% 9%;
 
-    /* Location Marker */
-    --location: 187 85% 53%;
-    --location-glow: 187 85% 43%;
+    /* Location Marker - Violet */
+    --location: 280 85% 65%;
+    --location-glow: 280 85% 55%;
 
-    /* Prediction - Purple */
-    --prediction: 265 89% 66%;
-    --prediction-foreground: 210 40% 98%;
+    /* Prediction - Cyan/Teal */
+    --prediction: 190 90% 50%;
+    --prediction-foreground: 270 20% 98%;
 
     /* SOS Emergency */
     --sos: 0 84% 60%;
     --sos-glow: 0 84% 50%;
 
     /* Borders & Inputs */
-    --border: 217 33% 22%;
-    --input: 217 33% 17%;
-    --ring: 187 85% 53%;
+    --border: 260 30% 20%;
+    --input: 260 30% 16%;
+    --ring: 280 85% 65%;
 
     --radius: 1rem;
 
     /* Sidebar */
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 22%;
-    --sidebar-ring: 187 85% 53%;
+    --sidebar-background: 260 35% 9%;
+    --sidebar-foreground: 270 20% 98%;
+    --sidebar-primary: 270 80% 60%;
+    --sidebar-primary-foreground: 260 35% 9%;
+    --sidebar-accent: 260 30% 16%;
+    --sidebar-accent-foreground: 270 20% 98%;
+    --sidebar-border: 260 30% 20%;
+    --sidebar-ring: 280 85% 65%;
 
     /* Glass Effect */
-    --glass-bg: 222 47% 11% / 0.8;
-    --glass-border: 217 33% 30% / 0.3;
+    --glass-bg: 260 35% 9% / 0.85;
+    --glass-border: 260 30% 35% / 0.3;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(187 85% 53%));
+    --gradient-primary: linear-gradient(135deg, hsl(270 80% 60%), hsl(280 85% 65%));
     --gradient-sos: linear-gradient(135deg, hsl(0 84% 60%), hsl(0 84% 45%));
-    --gradient-prediction: linear-gradient(135deg, hsl(265 89% 66%), hsl(280 85% 55%));
-    --gradient-surface: linear-gradient(180deg, hsl(222 47% 14%), hsl(222 47% 11%));
-    --gradient-card: linear-gradient(145deg, hsl(222 47% 16%), hsl(222 47% 12%));
-    --gradient-glass: linear-gradient(135deg, hsl(222 47% 18% / 0.6), hsl(222 47% 12% / 0.4));
+    --gradient-prediction: linear-gradient(135deg, hsl(190 90% 50%), hsl(200 85% 45%));
+    --gradient-surface: linear-gradient(180deg, hsl(260 35% 12%), hsl(260 35% 9%));
+    --gradient-card: linear-gradient(145deg, hsl(260 35% 14%), hsl(260 35% 10%));
+    --gradient-glass: linear-gradient(135deg, hsl(260 35% 16% / 0.6), hsl(260 35% 10% / 0.4));
   }
 
   .light {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    --background: 270 20% 98%;
+    --foreground: 260 35% 9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 260 35% 9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 260 35% 9%;
 
-    --primary: 217 91% 50%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 270 75% 55%;
+    --primary-foreground: 270 20% 98%;
 
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 270 20% 96%;
+    --secondary-foreground: 260 35% 9%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 25% 45%;
+    --muted: 270 20% 96%;
+    --muted-foreground: 260 20% 40%;
 
-    --accent: 187 85% 43%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 280 80% 55%;
+    --accent-foreground: 270 20% 98%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 270 20% 98%;
 
-    --success: 142 76% 36%;
-    --success-foreground: 210 40% 98%;
+    --success: 160 84% 39%;
+    --success-foreground: 270 20% 98%;
 
     --warning: 38 92% 50%;
-    --warning-foreground: 222 47% 11%;
+    --warning-foreground: 260 35% 9%;
 
-    --location: 187 85% 43%;
-    --location-glow: 187 85% 53%;
+    --location: 280 80% 55%;
+    --location-glow: 280 80% 65%;
 
-    --prediction: 265 89% 56%;
-    --prediction-foreground: 210 40% 98%;
+    --prediction: 190 85% 45%;
+    --prediction-foreground: 270 20% 98%;
 
     --sos: 0 84% 55%;
     --sos-glow: 0 84% 45%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 217 91% 50%;
+    --border: 260 20% 90%;
+    --input: 260 20% 90%;
+    --ring: 270 75% 55%;
 
-    --glass-bg: 0 0% 100% / 0.8;
-    --glass-border: 214 32% 80% / 0.5;
+    --glass-bg: 0 0% 100% / 0.85;
+    --glass-border: 260 20% 85% / 0.5;
 
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 50%), hsl(187 85% 43%));
-    --gradient-surface: linear-gradient(180deg, hsl(210 40% 98%), hsl(210 40% 96%));
-    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(210 40% 98%));
-    --gradient-glass: linear-gradient(135deg, hsl(0 0% 100% / 0.8), hsl(210 40% 98% / 0.6));
+    --gradient-primary: linear-gradient(135deg, hsl(270 75% 55%), hsl(280 80% 55%));
+    --gradient-surface: linear-gradient(180deg, hsl(270 20% 98%), hsl(270 20% 96%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(270 20% 98%));
+    --gradient-glass: linear-gradient(135deg, hsl(0 0% 100% / 0.85), hsl(270 20% 98% / 0.7));
   }
 }
 

@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Navigation, Crosshair, Layers, Plus, Minus } from "lucide-react";
+import { Navigation, Crosshair, Layers, Plus, Minus, Play, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useLocation } from "@/hooks/useLocation";
 
 interface LocationMarkerProps {
   latitude: number;
@@ -37,25 +38,7 @@ function LocationMarker({ isPredicted = false }: LocationMarkerProps) {
 }
 
 export function MapView() {
-  const [currentLocation, setCurrentLocation] = useState({
-    latitude: 40.7128,
-    longitude: -74.006,
-  });
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Simulate getting location
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleRecenter = () => {
-    // Re-center to current location
-    console.log("Recentering map...");
-  };
+  const { currentLocation, isLoading, error, refreshLocation, startTracking, stopTracking, isTracking } = useLocation();
 
   return (
     <div className="relative w-full h-full bg-card overflow-hidden">
@@ -99,7 +82,7 @@ export function MapView() {
         </svg>
 
         {/* Location markers */}
-        {!isLoading && (
+        {!isLoading && currentLocation && (
           <>
             {/* Current location */}
             <motion.div
@@ -165,6 +148,14 @@ export function MapView() {
         <Button variant="glass" size="icon" className="rounded-xl">
           <Layers className="w-5 h-5" />
         </Button>
+        <Button 
+          variant={isTracking ? "default" : "glass"} 
+          size="icon" 
+          className={cn("rounded-xl", isTracking && "bg-success")}
+          onClick={isTracking ? stopTracking : startTracking}
+        >
+          {isTracking ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+        </Button>
       </div>
 
       {/* Recenter button */}
@@ -178,7 +169,7 @@ export function MapView() {
           variant="accent"
           size="icon-lg"
           className="rounded-xl shadow-glow"
-          onClick={handleRecenter}
+          onClick={refreshLocation}
         >
           <Crosshair className="w-5 h-5" />
         </Button>
@@ -196,18 +187,22 @@ export function MapView() {
             <div>
               <h3 className="font-semibold text-foreground">Current Location</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                New York, NY 10001
+                {error ? "Location unavailable" : "Tracking active"}
               </p>
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-xs text-muted-foreground">
-                  {currentLocation.latitude.toFixed(4)}°N,{" "}
-                  {currentLocation.longitude.toFixed(4)}°W
-                </span>
-              </div>
+              {currentLocation && (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-muted-foreground">
+                    {currentLocation.latitude.toFixed(4)}°N,{" "}
+                    {Math.abs(currentLocation.longitude).toFixed(4)}°W
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-success/20">
-              <div className="w-2 h-2 rounded-full bg-success" />
-              <span className="text-xs text-success font-medium">Live</span>
+              <div className={cn("w-2 h-2 rounded-full", isTracking ? "bg-success animate-pulse" : "bg-muted-foreground")} />
+              <span className={cn("text-xs font-medium", isTracking ? "text-success" : "text-muted-foreground")}>
+                {isTracking ? "Live" : "Paused"}
+              </span>
             </div>
           </div>
 
