@@ -15,17 +15,21 @@ export function MapView() {
   const predictedLng = currentLocation ? currentLocation.longitude + 0.005 : undefined;
 
   return (
-    <div className="relative w-full h-full bg-background overflow-hidden">
+    <div className="relative w-full h-full min-h-[calc(100vh-180px)] bg-background overflow-hidden">
       {/* Real Map */}
-      {currentLocation && (
+      {currentLocation ? (
         <LeafletMap
           latitude={currentLocation.latitude}
           longitude={currentLocation.longitude}
           predictedLat={showPrediction ? predictedLat : undefined}
           predictedLng={showPrediction ? predictedLng : undefined}
           isTracking={isTracking}
-          className="absolute inset-0"
+          className="absolute inset-0 z-0"
         />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <p className="text-muted-foreground">Waiting for location...</p>
+        </div>
       )}
 
       {/* Loading overlay */}
