@@ -12,11 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, stream = true } = await req.json();
+    const { messages, stream = false } = await req.json();
     
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     const systemPrompt = `You are SafeTrack AI, an intelligent travel and location assistant. You help users understand their movement patterns, predict where they might go next, and suggest nearby places like hotels, restaurants, and attractions.
@@ -32,14 +32,14 @@ Be helpful, concise, and friendly. When providing location predictions, include 
 
     if (stream) {
       // Streaming response
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "google/gemini-3-flash-preview",
           messages: [
             { role: "system", content: systemPrompt },
             ...messages,
@@ -50,12 +50,19 @@ Be helpful, concise, and friendly. When providing location predictions, include 
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("OpenAI API error:", response.status, errorText);
+        console.error("Lovable AI API error:", response.status, errorText);
         
         if (response.status === 429) {
           return new Response(
             JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
             { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        if (response.status === 402) {
+          return new Response(
+            JSON.stringify({ error: "Payment required. Please add credits to your Lovable workspace." }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
         
@@ -74,14 +81,14 @@ Be helpful, concise, and friendly. When providing location predictions, include 
       });
     } else {
       // Non-streaming response
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "google/gemini-3-flash-preview",
           messages: [
             { role: "system", content: systemPrompt },
             ...messages,
@@ -91,12 +98,27 @@ Be helpful, concise, and friendly. When providing location predictions, include 
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("OpenAI API error:", response.status, errorText);
-        throw new Error("OpenAI API error");
+        console.error("Lovable AI API error:", response.status, errorText);
+        
+        if (response.status === 429) {
+          return new Response(
+            JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        if (response.status === 402) {
+          return new Response(
+            JSON.stringify({ error: "Payment required. Please add credits to your Lovable workspace." }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        throw new Error("AI service error");
       }
 
       const data = await response.json();
-      const assistantMessage = data.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+      const assistantMessage = data.choices?.[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
 
       return new Response(
         JSON.stringify({ message: assistantMessage }),

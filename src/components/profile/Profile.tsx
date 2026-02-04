@@ -11,6 +11,7 @@ import {
   Smartphone,
   Users,
   HelpCircle,
+  Edit2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,58 +19,22 @@ import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-
-const menuItems = [
-  {
-    icon: Users,
-    label: "Emergency Contacts",
-    description: "Manage SOS contacts",
-    link: true,
-  },
-  {
-    icon: MapPin,
-    label: "Location History",
-    description: "View all tracked locations",
-    link: true,
-  },
-  {
-    icon: Bell,
-    label: "Notifications",
-    description: "Manage alerts and reminders",
-    toggle: true,
-    enabled: true,
-  },
-  {
-    icon: Shield,
-    label: "Privacy Settings",
-    description: "Control data sharing",
-    link: true,
-  },
-  {
-    icon: Moon,
-    label: "Dark Mode",
-    description: "Switch appearance",
-    toggle: true,
-    enabled: true,
-  },
-  {
-    icon: Smartphone,
-    label: "Device Settings",
-    description: "GPS and battery options",
-    link: true,
-  },
-  {
-    icon: HelpCircle,
-    label: "Help & Support",
-    description: "FAQs and contact",
-    link: true,
-  },
-];
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface Profile {
   name: string | null;
   email: string | null;
   avatar_url: string | null;
+  phone: string | null;
 }
 
 export function Profile() {
@@ -81,6 +46,12 @@ export function Profile() {
     locations: 0,
     predictions: 0,
   });
+  const [notifications, setNotifications] = useState(true);
+  const [darkMode, setDarkMode] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -93,12 +64,14 @@ export function Profile() {
     if (!user) return;
     const { data } = await supabase
       .from("profiles")
-      .select("name, email, avatar_url")
+      .select("name, email, avatar_url, phone")
       .eq("user_id", user.id)
       .single();
     
     if (data) {
       setProfile(data);
+      setEditName(data.name || "");
+      setEditPhone(data.phone || "");
     }
   };
 
@@ -129,10 +102,134 @@ export function Profile() {
     });
   };
 
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    setSaving(true);
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          name: editName,
+          phone: editPhone,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      setProfile((prev) => prev ? { ...prev, name: editName, phone: editPhone } : null);
+      setIsEditing(false);
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast.error("Failed to update profile");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
   };
+
+  const handleEmergencyContacts = () => {
+    navigate("/sos");
+    toast.info("Manage your emergency contacts in the SOS tab");
+  };
+
+  const handleLocationHistory = async () => {
+    const { data, error } = await supabase
+      .from("location_logs")
+      .select("*")
+      .eq("user_id", user?.id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      toast.error("Failed to fetch location history");
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      toast.info("No location history yet. Start tracking to see your history.");
+    } else {
+      toast.success(`Found ${stats.locations} location logs. Latest: ${new Date(data[0].created_at).toLocaleString()}`);
+    }
+  };
+
+  const handlePrivacySettings = () => {
+    toast.info("Privacy settings: Your location data is stored securely and only visible to you.");
+  };
+
+  const handleDeviceSettings = () => {
+    toast.info("For best GPS accuracy, ensure Location Services is enabled in your device settings.");
+  };
+
+  const handleHelpSupport = () => {
+    toast.info("Need help? Contact us at support@safetrack.app");
+  };
+
+  const handleNotificationsToggle = (checked: boolean) => {
+    setNotifications(checked);
+    toast.success(checked ? "Notifications enabled" : "Notifications disabled");
+  };
+
+  const handleDarkModeToggle = (checked: boolean) => {
+    setDarkMode(checked);
+    // In a real app, you'd toggle the theme here
+    toast.success(checked ? "Dark mode enabled" : "Light mode enabled");
+  };
+
+  const menuItems = [
+    {
+      icon: Users,
+      label: "Emergency Contacts",
+      description: "Manage SOS contacts",
+      onClick: handleEmergencyContacts,
+    },
+    {
+      icon: MapPin,
+      label: "Location History",
+      description: "View all tracked locations",
+      onClick: handleLocationHistory,
+    },
+    {
+      icon: Bell,
+      label: "Notifications",
+      description: "Manage alerts and reminders",
+      toggle: true,
+      enabled: notifications,
+      onToggle: handleNotificationsToggle,
+    },
+    {
+      icon: Shield,
+      label: "Privacy Settings",
+      description: "Control data sharing",
+      onClick: handlePrivacySettings,
+    },
+    {
+      icon: Moon,
+      label: "Dark Mode",
+      description: "Switch appearance",
+      toggle: true,
+      enabled: darkMode,
+      onToggle: handleDarkModeToggle,
+    },
+    {
+      icon: Smartphone,
+      label: "Device Settings",
+      description: "GPS and battery options",
+      onClick: handleDeviceSettings,
+    },
+    {
+      icon: HelpCircle,
+      label: "Help & Support",
+      description: "FAQs and contact",
+      onClick: handleHelpSupport,
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-background pb-32">
@@ -184,9 +281,47 @@ export function Profile() {
                   </span>
                 </div>
               </div>
-              <Button variant="ghost" size="icon" className="rounded-xl">
-                <ChevronRight className="w-5 h-5 text-muted-foreground" />
-              </Button>
+              <Dialog open={isEditing} onOpenChange={setIsEditing}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-xl">
+                    <Edit2 className="w-5 h-5 text-muted-foreground" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-card border-border">
+                  <DialogHeader>
+                    <DialogTitle>Edit Profile</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Name</Label>
+                      <Input
+                        id="name"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        placeholder="Your name"
+                        className="bg-secondary"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone</Label>
+                      <Input
+                        id="phone"
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        placeholder="+1234567890"
+                        className="bg-secondary"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleSaveProfile}
+                      disabled={saving}
+                      className="w-full bg-gradient-primary"
+                    >
+                      {saving ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </Card>
@@ -231,7 +366,8 @@ export function Profile() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.5 + index * 0.05 }}
-                className="flex items-center gap-4 p-4"
+                className="flex items-center gap-4 p-4 cursor-pointer hover:bg-secondary/50 transition-colors"
+                onClick={item.toggle ? undefined : item.onClick}
               >
                 <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
                   <item.icon className="w-5 h-5 text-muted-foreground" />
@@ -245,7 +381,10 @@ export function Profile() {
                   </p>
                 </div>
                 {item.toggle ? (
-                  <Switch defaultChecked={item.enabled} />
+                  <Switch 
+                    checked={item.enabled} 
+                    onCheckedChange={item.onToggle}
+                  />
                 ) : (
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 )}

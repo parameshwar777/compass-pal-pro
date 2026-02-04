@@ -2,3 +2,12 @@ project_id = "ttbwvysatpwjhwslqwfr"
 
 [functions.chat]
 verify_jwt = false
+
+[functions.predict-location]
+verify_jwt = false
+
+[functions.send-sos]
+verify_jwt = false
+
+[functions.send-otp]
+verify_jwt = false
