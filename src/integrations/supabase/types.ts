@@ -14,7 +14,207 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      emergency_contacts: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string
+          relationship: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone: string
+          relationship?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string
+          relationship?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      location_logs: {
+        Row: {
+          created_at: string
+          day: number
+          hour: number
+          id: string
+          latitude: number
+          longitude: number
+          timestamp: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          day: number
+          hour: number
+          id?: string
+          latitude: number
+          longitude: number
+          timestamp?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          day?: number
+          hour?: number
+          id?: string
+          latitude?: number
+          longitude?: number
+          timestamp?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      places: {
+        Row: {
+          address: string | null
+          category: string
+          created_at: string
+          id: string
+          image_url: string | null
+          is_saved: boolean | null
+          latitude: number
+          longitude: number
+          name: string
+          rating: number | null
+          type: string
+          user_id: string | null
+          visit_count: number | null
+        }
+        Insert: {
+          address?: string | null
+          category: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_saved?: boolean | null
+          latitude: number
+          longitude: number
+          name: string
+          rating?: number | null
+          type: string
+          user_id?: string | null
+          visit_count?: number | null
+        }
+        Update: {
+          address?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_saved?: boolean | null
+          latitude?: number
+          longitude?: number
+          name?: string
+          rating?: number | null
+          type?: string
+          user_id?: string | null
+          visit_count?: number | null
+        }
+        Relationships: []
+      }
+      predictions: {
+        Row: {
+          confidence: number
+          created_at: string
+          id: string
+          label: string | null
+          predicted_lat: number
+          predicted_lng: number
+          prediction_timestamp: string
+          user_id: string
+        }
+        Insert: {
+          confidence: number
+          created_at?: string
+          id?: string
+          label?: string | null
+          predicted_lat: number
+          predicted_lng: number
+          prediction_timestamp?: string
+          user_id: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          id?: string
+          label?: string | null
+          predicted_lat?: number
+          predicted_lng?: number
+          prediction_timestamp?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
