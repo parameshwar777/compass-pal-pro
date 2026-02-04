@@ -1,14 +1,14 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Map, MessageSquare, AlertTriangle, Brain, Hotel } from "lucide-react";
+import { Map, MessageSquare, AlertTriangle, Brain, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/", icon: Map, label: "Map" },
   { path: "/predictions", icon: Brain, label: "Predict" },
-  { path: "/stays", icon: Hotel, label: "Stays" },
   { path: "/sos", icon: AlertTriangle, label: "SOS" },
   { path: "/assistant", icon: MessageSquare, label: "Chat" },
+  { path: "/profile", icon: User, label: "Profile" },
 ];
 
 export function BottomNavigation() {

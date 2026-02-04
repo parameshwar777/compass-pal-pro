@@ -138,31 +138,32 @@ export default function SOS() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="p-4 pt-6"
+        className="shrink-0 px-3 py-3 border-b border-border bg-card/80 backdrop-blur-sm"
       >
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-sos/20 flex items-center justify-center">
-            <Shield className="w-5 h-5 text-sos" />
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-sos/20 flex items-center justify-center">
+            <Shield className="w-4 h-4 text-sos" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Emergency SOS</h1>
-            <p className="text-sm text-muted-foreground">Quick access to emergency alerts</p>
+            <h1 className="text-base font-bold text-foreground">Emergency SOS</h1>
+            <p className="text-[10px] text-muted-foreground">Quick access to emergency alerts</p>
           </div>
         </div>
       </motion.div>
 
-      {/* SOS Button Section */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.1 }}
-        className="px-4 mb-6"
-      >
+      <div className="flex-1 overflow-y-auto pb-2">
+        {/* SOS Button Section */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1 }}
+          className="px-3 py-3"
+        >
         <Card className="bg-gradient-to-br from-sos/20 to-sos/5 border-sos/30">
           <CardContent className="p-6 text-center">
             <AnimatePresence mode="wait">
@@ -196,7 +197,7 @@ export default function SOS() {
                   <Button
                     variant="sos"
                     size="lg"
-                    className="w-32 h-32 rounded-full text-lg font-bold"
+                    className="w-24 h-24 rounded-full text-base font-bold"
                     onClick={sendSOSAlert}
                     disabled={sendingAlert || contacts.length === 0}
                   >
@@ -205,17 +206,17 @@ export default function SOS() {
                         animate={{ rotate: 360 }}
                         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                       >
-                        <AlertTriangle className="w-10 h-10" />
+                        <AlertTriangle className="w-8 h-8" />
                       </motion.div>
                     ) : (
-                      <div className="flex flex-col items-center gap-1">
-                        <AlertTriangle className="w-10 h-10" />
+                      <div className="flex flex-col items-center gap-0.5">
+                        <AlertTriangle className="w-8 h-8" />
                         <span>SOS</span>
                       </div>
                     )}
                   </Button>
                   {currentLocation && (
-                    <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                    <div className="mt-3 flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
                       <MapPin className="w-3 h-3" />
                       <span>
                         {currentLocation.latitude.toFixed(4)}°, {currentLocation.longitude.toFixed(4)}°
@@ -234,27 +235,27 @@ export default function SOS() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="px-4"
+        className="px-3"
       >
         <Card variant="glass">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2 px-3 pt-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Emergency Contacts</CardTitle>
+              <CardTitle className="text-sm">Emergency Contacts</CardTitle>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowAddForm(!showAddForm)}
-                className="text-accent"
+                className="text-accent h-7 text-xs"
               >
-                <Plus className="w-4 h-4 mr-1" />
+                <Plus className="w-3 h-3 mr-1" />
                 Add
               </Button>
             </div>
-            <CardDescription>
+            <CardDescription className="text-[10px]">
               People who will receive your SOS alerts
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 pb-3">
             {/* Add contact form */}
             <AnimatePresence>
               {showAddForm && (
@@ -307,10 +308,10 @@ export default function SOS() {
                 <div className="w-6 h-6 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
               </div>
             ) : contacts.length === 0 ? (
-              <div className="text-center py-8">
-                <User className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">No emergency contacts yet</p>
-                <p className="text-xs text-muted-foreground mt-1">
+              <div className="text-center py-4">
+                <User className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-xs text-muted-foreground">No emergency contacts yet</p>
+                <p className="text-[10px] text-muted-foreground mt-1">
                   Add contacts to enable SOS alerts
                 </p>
               </div>
@@ -322,22 +323,22 @@ export default function SOS() {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="flex items-center gap-3 p-3 bg-secondary rounded-xl"
+                    className="flex items-center gap-2 p-2 bg-secondary rounded-lg"
                   >
-                    <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-                      <User className="w-5 h-5 text-accent" />
+                    <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
+                      <User className="w-4 h-4 text-accent" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground truncate">{contact.name}</p>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3" />
+                      <p className="text-xs font-medium text-foreground truncate">{contact.name}</p>
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-0.5 truncate">
+                          <Phone className="w-2.5 h-2.5" />
                           {contact.phone}
                         </span>
                         {contact.email && (
-                          <span className="flex items-center gap-1 truncate">
-                            <Mail className="w-3 h-3" />
-                            {contact.email}
+                          <span className="flex items-center gap-0.5 truncate">
+                            <Mail className="w-2.5 h-2.5" />
+                            {contact.email.split('@')[0]}...
                           </span>
                         )}
                       </div>
@@ -345,10 +346,10 @@ export default function SOS() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-muted-foreground hover:text-sos"
+                      className="text-muted-foreground hover:text-sos h-7 w-7"
                       onClick={() => deleteContact(contact.id)}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </motion.div>
                 ))}
@@ -357,6 +358,7 @@ export default function SOS() {
           </CardContent>
         </Card>
       </motion.div>
+      </div>
 
       <BottomNavigation />
     </div>

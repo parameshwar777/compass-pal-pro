@@ -4,8 +4,8 @@ import { AIChat } from "@/components/chat/AIChat";
 
 const Assistant = () => {
   return (
-    <div className="h-screen bg-background flex flex-col">
-      <div className="flex-1 overflow-hidden pb-24">
+    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
+      <div className="flex-1 overflow-hidden">
         <AIChat />
       </div>
       <SOSButton />
