@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface Contact {
@@ -28,6 +29,10 @@ serve(async (req) => {
     if (!RESEND_API_KEY) {
       throw new Error("RESEND_API_KEY is not configured");
     }
+
+    // IMPORTANT: for production you must use a verified domain in the From address.
+    // Set RESEND_FROM like: "SafeTrack SOS <noreply@your-verified-domain.com>"
+    const FROM = Deno.env.get("RESEND_FROM") || "SafeTrack SOS <onboarding@resend.dev>";
 
     const { contacts, location, coordinates }: SOSRequest = await req.json();
 
@@ -58,7 +63,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "SafeTrack SOS <onboarding@resend.dev>",
+          from: FROM,
           to: [contact.email],
           subject: "🚨 EMERGENCY SOS ALERT - Immediate Attention Required",
           html: `
@@ -114,9 +119,15 @@ serve(async (req) => {
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        console.error(`Failed to send email to ${contact.email}:`, error);
-        return { email: contact.email, success: false, error };
+        let errText = await response.text();
+        try {
+          const parsed = JSON.parse(errText);
+          errText = parsed?.message || parsed?.error || errText;
+        } catch {
+          // keep as text
+        }
+        console.error(`Failed to send email to ${contact.email}:`, errText);
+        return { email: contact.email, success: false, error: errText };
       }
 
       return { email: contact.email, success: true };

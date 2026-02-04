@@ -119,23 +119,29 @@ export default function Stays() {
   ];
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <div className="p-4 pt-6">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h1 className="text-2xl font-bold text-foreground">Stays & Places</h1>
-          <p className="text-muted-foreground mt-1">
-            Discover hotels, restaurants & attractions near you
-          </p>
-        </motion.div>
-      </div>
+      <motion.header
+        initial={{ opacity: 0, y: -12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="shrink-0 px-3 py-3 border-b border-border bg-card/80 backdrop-blur-sm"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
+            <Hotel className="w-4 h-4 text-accent" />
+          </div>
+          <div>
+            <h1 className="text-base font-bold text-foreground">Stays</h1>
+            <p className="text-[10px] text-muted-foreground">Places within ~{NEARBY_RADIUS_KM}km</p>
+          </div>
+        </div>
+      </motion.header>
+
+      <main className="flex-1 overflow-y-auto pb-4 safe-bottom">
 
       {/* Location hint */}
-      <div className="px-4 mb-3">
-        <div className="glass-card rounded-2xl p-3 flex items-center justify-between gap-3">
+      <div className="px-3 pt-3 mb-3">
+        <div className="glass-card rounded-2xl p-3 flex flex-col gap-2">
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">Using location</p>
             <p className="text-sm text-foreground truncate">
@@ -151,15 +157,15 @@ export default function Stays() {
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Button variant="glass" size="sm" onClick={refreshLocation}>
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <Button variant="glass" size="sm" onClick={refreshLocation} className="h-9">
               Refresh
             </Button>
             <Button
               variant={showAll ? "default" : "glass"}
               size="sm"
               onClick={() => setShowAll((v) => !v)}
-              className={cn(!showAll && "")}
+              className={cn("h-9", !showAll && "")}
             >
               {showAll ? "Showing all" : "Near me"}
             </Button>
@@ -172,7 +178,7 @@ export default function Stays() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="px-4 mb-4"
+        className="px-3 mb-4"
       >
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -191,7 +197,7 @@ export default function Stays() {
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.2 }}
-        className="px-4 mb-6"
+        className="px-3 mb-4"
       >
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
           {tabs.map((tab) => {
@@ -217,7 +223,7 @@ export default function Stays() {
       </motion.div>
 
       {/* Places List */}
-      <div className="px-4 space-y-3">
+      <div className="px-3 space-y-3">
         {loading ? (
           // Loading skeleton
           Array.from({ length: 4 }).map((_, i) => (
@@ -246,7 +252,7 @@ export default function Stays() {
               >
                 <Card variant="glass" className="overflow-hidden">
                   <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-3">
                       <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0", colorClass)}>
                         <Icon className="w-6 h-6" />
                       </div>
@@ -299,7 +305,9 @@ export default function Stays() {
         )}
       </div>
 
-      <SOSButton />
+        <SOSButton />
+      </main>
+
       <BottomNavigation />
     </div>
   );
