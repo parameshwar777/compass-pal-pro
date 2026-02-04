@@ -67,13 +67,6 @@ export function useLocation(): UseLocationReturn {
     console.error("Geolocation error:", err);
     setError(err.message);
     setIsLoading(false);
-    
-    // Fallback to a default location
-    setCurrentLocation({
-      latitude: 40.7128,
-      longitude: -74.0060,
-      timestamp: new Date(),
-    });
   }, []);
 
   const refreshLocation = useCallback(() => {
@@ -113,7 +106,7 @@ export function useLocation(): UseLocationReturn {
       {
         enableHighAccuracy: true,
         timeout: 15000,
-        maximumAge: 10000,
+        maximumAge: 0,
       }
     );
 
