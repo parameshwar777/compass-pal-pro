@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Bot, User, Sparkles, MapPin } from "lucide-react";
+import { Send, Bot, User, Sparkles, MapPin, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,41 +54,52 @@ export function AIChat() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const userInput = input;
     setInput("");
     setIsTyping(true);
 
     try {
       // Build message history for context
-      const messageHistory = messages.map((m) => ({
+      const messageHistory = messages.slice(-10).map((m) => ({
         role: m.role,
         content: m.content,
       }));
-      messageHistory.push({ role: "user", content: input });
+      messageHistory.push({ role: "user", content: userInput });
 
-      const response = await supabase.functions.invoke("chat", {
+      console.log("Sending chat request...");
+      
+      const { data, error } = await supabase.functions.invoke("chat", {
         body: { messages: messageHistory, stream: false },
       });
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      console.log("Chat response:", data, error);
+
+      if (error) {
+        console.error("Supabase function error:", error);
+        throw new Error(error.message || "Failed to get response");
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: response.data.message || "I'm sorry, I couldn't generate a response.",
+        content: data?.message || "I'm sorry, I couldn't generate a response. Please try again.",
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error("Chat error:", error);
-      toast.error("Failed to get response. Please try again.");
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      toast.error(`Chat error: ${errorMsg}`);
       
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "I'm sorry, I encountered an error. Please try again.",
+        content: `I'm sorry, I encountered an error: ${errorMsg}. Please check that the OpenAI API key is configured correctly.`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -101,18 +112,34 @@ export function AIChat() {
     setInput(action);
   };
 
+  const clearChat = () => {
+    setMessages([
+      {
+        id: "1",
+        role: "assistant",
+        content: "Hello! I'm SafeTrack AI, your intelligent travel assistant. I can help you understand your movement patterns, predict where you might go next, and suggest nearby places. What would you like to know?",
+        timestamp: new Date(),
+      },
+    ]);
+  };
+
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <div className="flex-shrink-0 p-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
-            <Bot className="w-5 h-5 text-primary-foreground" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
+              <Bot className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-foreground">SafeTrack AI</h2>
+              <p className="text-xs text-muted-foreground">Powered by OpenAI</p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-semibold text-foreground">SafeTrack AI</h2>
-            <p className="text-xs text-muted-foreground">Powered by OpenAI</p>
-          </div>
+          <Button variant="ghost" size="icon" onClick={clearChat} className="text-muted-foreground">
+            <RefreshCw className="w-4 h-4" />
+          </Button>
         </div>
       </div>
 
@@ -232,7 +259,7 @@ export function AIChat() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
               placeholder="Ask me anything..."
               className="w-full h-12 px-4 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
             />

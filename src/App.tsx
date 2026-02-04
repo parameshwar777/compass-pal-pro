@@ -10,6 +10,8 @@ import Analytics from "./pages/Analytics";
 import Assistant from "./pages/Assistant";
 import ProfilePage from "./pages/ProfilePage";
 import Stays from "./pages/Stays";
+import SOS from "./pages/SOS";
+import Predictions from "./pages/Predictions";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -50,6 +52,8 @@ function AppRoutes() {
         <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
         <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
         <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+        <Route path="/predictions" element={<ProtectedRoute><Predictions /></ProtectedRoute>} />
+        <Route path="/sos" element={<ProtectedRoute><SOS /></ProtectedRoute>} />
         <Route path="/assistant" element={<ProtectedRoute><Assistant /></ProtectedRoute>} />
         <Route path="/stays" element={<ProtectedRoute><Stays /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />

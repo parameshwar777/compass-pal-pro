@@ -1,12 +1,12 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Map, BarChart3, MessageSquare, User, Hotel } from "lucide-react";
+import { Map, BarChart3, MessageSquare, User, AlertTriangle, Brain } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/", icon: Map, label: "Map" },
-  { path: "/analytics", icon: BarChart3, label: "Analytics" },
-  { path: "/stays", icon: Hotel, label: "Stays" },
+  { path: "/predictions", icon: Brain, label: "Predict" },
+  { path: "/sos", icon: AlertTriangle, label: "SOS" },
   { path: "/assistant", icon: MessageSquare, label: "AI Chat" },
   { path: "/profile", icon: User, label: "Profile" },
 ];
@@ -22,6 +22,7 @@ export function BottomNavigation() {
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
               const Icon = item.icon;
+              const isSOS = item.path === "/sos";
 
               return (
                 <NavLink
@@ -32,21 +33,27 @@ export function BottomNavigation() {
                   <motion.div
                     className={cn(
                       "flex items-center justify-center w-10 h-10 rounded-xl transition-colors duration-200",
-                      isActive ? "bg-accent/20" : "hover:bg-accent/10"
+                      isActive 
+                        ? isSOS ? "bg-sos/20" : "bg-accent/20" 
+                        : isSOS ? "hover:bg-sos/10" : "hover:bg-accent/10"
                     )}
                     whileTap={{ scale: 0.9 }}
                   >
                     <Icon
                       className={cn(
                         "w-5 h-5 transition-colors duration-200",
-                        isActive ? "text-accent" : "text-muted-foreground"
+                        isActive 
+                          ? isSOS ? "text-sos" : "text-accent" 
+                          : isSOS ? "text-sos/70" : "text-muted-foreground"
                       )}
                     />
                   </motion.div>
                   <span
                     className={cn(
                       "text-2xs font-medium transition-colors duration-200",
-                      isActive ? "text-accent" : "text-muted-foreground"
+                      isActive 
+                        ? isSOS ? "text-sos" : "text-accent" 
+                        : "text-muted-foreground"
                     )}
                   >
                     {item.label}
@@ -54,7 +61,10 @@ export function BottomNavigation() {
                   {isActive && (
                     <motion.div
                       layoutId="activeTab"
-                      className="absolute -top-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-accent"
+                      className={cn(
+                        "absolute -top-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full",
+                        isSOS ? "bg-sos" : "bg-accent"
+                      )}
                       transition={{ type: "spring", stiffness: 500, damping: 30 }}
                     />
                   )}
