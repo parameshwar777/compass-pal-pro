@@ -31,7 +31,7 @@ const Index = () => {
       </motion.header>
 
       {/* Map takes full screen */}
-      <div className="flex-1">
+      <div className="flex-1 min-h-0 h-[calc(100vh-120px)]">
         <MapView />
       </div>
 
