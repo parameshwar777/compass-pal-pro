@@ -6,6 +6,7 @@ interface Location {
   latitude: number;
   longitude: number;
   timestamp: Date;
+  accuracy?: number;
 }
 
 interface UseLocationReturn {
@@ -31,13 +32,19 @@ export function useLocation(): UseLocationReturn {
 
     const now = new Date();
     try {
-      await supabase.from("location_logs").insert({
+      const { error: insertError } = await supabase.from("location_logs").insert({
         user_id: user.id,
         latitude,
         longitude,
         day: now.getDay(),
         hour: now.getHours(),
       });
+      
+      if (insertError) {
+        console.error("Error saving location:", insertError);
+      } else {
+        console.log("Location saved:", { latitude, longitude });
+      }
     } catch (err) {
       console.error("Error saving location:", err);
     }
@@ -48,16 +55,20 @@ export function useLocation(): UseLocationReturn {
       latitude: position.coords.latitude,
       longitude: position.coords.longitude,
       timestamp: new Date(),
+      accuracy: position.coords.accuracy,
     };
+    console.log("Got position:", newLocation);
     setCurrentLocation(newLocation);
     setIsLoading(false);
     setError(null);
   }, []);
 
   const handleError = useCallback((err: GeolocationPositionError) => {
+    console.error("Geolocation error:", err);
     setError(err.message);
     setIsLoading(false);
-    // Fallback to default location (New York)
+    
+    // Fallback to a default location
     setCurrentLocation({
       latitude: 40.7128,
       longitude: -74.0060,
@@ -67,14 +78,20 @@ export function useLocation(): UseLocationReturn {
 
   const refreshLocation = useCallback(() => {
     setIsLoading(true);
+    setError(null);
+    
     if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(handlePosition, handleError, {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      });
+      navigator.geolocation.getCurrentPosition(
+        handlePosition, 
+        handleError, 
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        }
+      );
     } else {
-      setError("Geolocation is not supported");
+      setError("Geolocation is not supported by your browser");
       setIsLoading(false);
     }
   }, [handlePosition, handleError]);
@@ -85,6 +102,8 @@ export function useLocation(): UseLocationReturn {
       return;
     }
 
+    console.log("Starting location tracking...");
+
     const id = navigator.geolocation.watchPosition(
       (position) => {
         handlePosition(position);
@@ -93,8 +112,8 @@ export function useLocation(): UseLocationReturn {
       handleError,
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 30000, // Cache position for 30 seconds
+        timeout: 15000,
+        maximumAge: 10000,
       }
     );
 
@@ -108,12 +127,13 @@ export function useLocation(): UseLocationReturn {
       setWatchId(null);
     }
     setIsTracking(false);
+    console.log("Stopped location tracking");
   }, [watchId]);
 
   // Get initial location on mount
   useEffect(() => {
     refreshLocation();
-  }, [refreshLocation]);
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {

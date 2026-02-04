@@ -1,15 +1,10 @@
 import { BottomNavigation } from "@/components/navigation/BottomNavigation";
-import { SOSButton } from "@/components/sos/SOSButton";
 import { MapView } from "@/components/map/MapView";
 import { motion } from "framer-motion";
 import { Bell, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const Index = () => {
-  const handleSOSActivate = () => {
-    console.log("SOS Activated - sending alerts");
-  };
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -39,9 +34,6 @@ const Index = () => {
       <div className="flex-1">
         <MapView />
       </div>
-
-      {/* SOS Button */}
-      <SOSButton onActivate={handleSOSActivate} />
 
       {/* Bottom Navigation */}
       <BottomNavigation />
