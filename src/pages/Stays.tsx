@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   Hotel, 
@@ -17,6 +17,8 @@ import { BottomNavigation } from "@/components/navigation/BottomNavigation";
 import { SOSButton } from "@/components/sos/SOSButton";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useLocation } from "@/hooks/useLocation";
+import { haversineKm } from "@/lib/geo";
 
 type PlaceType = "all" | "hotel" | "restaurant" | "attraction";
 
@@ -51,6 +53,11 @@ export default function Stays() {
   const [loading, setLoading] = useState(true);
   const [activeType, setActiveType] = useState<PlaceType>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAll, setShowAll] = useState(false);
+
+  const { currentLocation, isLoading: locationLoading, error: locationError, refreshLocation } = useLocation();
+
+  const NEARBY_RADIUS_KM = 50;
 
   useEffect(() => {
     fetchPlaces();
@@ -72,12 +79,37 @@ export default function Stays() {
     }
   };
 
-  const filteredPlaces = places.filter((place) => {
-    const matchesType = activeType === "all" || place.type === activeType;
-    const matchesSearch = place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         place.category.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesType && matchesSearch;
-  });
+  const placesWithDistance = useMemo(() => {
+    if (!currentLocation) return places.map((p) => ({ ...p, distance_km: null as number | null }));
+    return places.map((p) => ({
+      ...p,
+      distance_km: haversineKm(
+        { lat: currentLocation.latitude, lng: currentLocation.longitude },
+        { lat: p.latitude, lng: p.longitude }
+      ),
+    }));
+  }, [places, currentLocation]);
+
+  const filteredPlaces = useMemo(() => {
+    return placesWithDistance
+      .filter((place) => {
+        const matchesType = activeType === "all" || place.type === activeType;
+        const matchesSearch =
+          place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          place.category.toLowerCase().includes(searchQuery.toLowerCase());
+
+        const matchesNearby =
+          showAll ||
+          !currentLocation ||
+          (place.distance_km != null && place.distance_km <= NEARBY_RADIUS_KM);
+
+        return matchesType && matchesSearch && matchesNearby;
+      })
+      .sort((a, b) => {
+        if (a.distance_km == null || b.distance_km == null) return 0;
+        return a.distance_km - b.distance_km;
+      });
+  }, [placesWithDistance, activeType, searchQuery, showAll, currentLocation]);
 
   const tabs: { type: PlaceType; label: string; icon: any }[] = [
     { type: "all", label: "All", icon: MapPin },
@@ -96,9 +128,43 @@ export default function Stays() {
         >
           <h1 className="text-2xl font-bold text-foreground">Stays & Places</h1>
           <p className="text-muted-foreground mt-1">
-            Discover hotels, restaurants & attractions
+            Discover hotels, restaurants & attractions near you
           </p>
         </motion.div>
+      </div>
+
+      {/* Location hint */}
+      <div className="px-4 mb-3">
+        <div className="glass-card rounded-2xl p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">Using location</p>
+            <p className="text-sm text-foreground truncate">
+              {currentLocation
+                ? `${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}`
+                : locationLoading
+                  ? "Getting your location…"
+                  : "Location not available"}
+            </p>
+            {locationError && (
+              <p className="text-xs text-warning mt-1 truncate">
+                Enable “Precise location” to see nearby results.
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button variant="glass" size="sm" onClick={refreshLocation}>
+              Refresh
+            </Button>
+            <Button
+              variant={showAll ? "default" : "glass"}
+              size="sm"
+              onClick={() => setShowAll((v) => !v)}
+              className={cn(!showAll && "")}
+            >
+              {showAll ? "Showing all" : "Near me"}
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Search */}
@@ -160,7 +226,11 @@ export default function Stays() {
         ) : filteredPlaces.length === 0 ? (
           <div className="text-center py-12">
             <MapPin className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No places found</p>
+            <p className="text-muted-foreground">
+              {currentLocation && !showAll
+                ? `No places found within ${NEARBY_RADIUS_KM}km of you`
+                : "No places found"}
+            </p>
           </div>
         ) : (
           filteredPlaces.map((place, index) => {
@@ -206,6 +276,11 @@ export default function Stays() {
                           <span className="text-xs text-muted-foreground">
                             {place.visit_count?.toLocaleString()} visits
                           </span>
+                          {place.distance_km != null && (
+                            <span className="text-xs text-muted-foreground">
+                              {place.distance_km.toFixed(1)}km
+                            </span>
+                          )}
                         </div>
                         
                         {place.address && (
