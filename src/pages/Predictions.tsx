@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Target, MapPin, Clock, TrendingUp, Calendar, ChevronRight, Brain } from "lucide-react";
+import { Target, MapPin, Clock, TrendingUp, Calendar, ChevronRight, Brain, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BottomNavigation } from "@/components/navigation/BottomNavigation";
+import { SOSButton } from "@/components/sos/SOSButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Prediction {
   id: string;
@@ -26,14 +28,28 @@ interface LocationLog {
   created_at: string;
 }
 
+interface PredictionResult {
+  prediction: {
+    latitude: number;
+    longitude: number;
+    confidence: number;
+    label: string;
+    basedOnDataPoints: number;
+  };
+  totalDataPoints: number;
+  patternMatches: number;
+}
+
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export default function Predictions() {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [locationLogs, setLocationLogs] = useState<LocationLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [predicting, setPredicting] = useState(false);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay());
-  const { user } = useAuth();
+  const [latestPrediction, setLatestPrediction] = useState<PredictionResult | null>(null);
+  const { user, session } = useAuth();
 
   useEffect(() => {
     if (user) {
@@ -64,6 +80,55 @@ export default function Predictions() {
       console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePredictLocation = async () => {
+    if (!session?.access_token) {
+      toast.error("Please log in to get predictions");
+      return;
+    }
+
+    setPredicting(true);
+    setLatestPrediction(null);
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/predict-location`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            hour: new Date().getHours(),
+            day: new Date().getDay(),
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.error === "Not enough location data") {
+          toast.error(data.message || "Need more location data for predictions");
+        } else {
+          throw new Error(data.error || "Failed to predict location");
+        }
+        return;
+      }
+
+      setLatestPrediction(data);
+      toast.success(`Prediction: ${data.prediction.label} (${Math.round(data.prediction.confidence * 100)}% confidence)`);
+      
+      // Refresh predictions list
+      fetchData();
+    } catch (error) {
+      console.error("Prediction error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to predict location");
+    } finally {
+      setPredicting(false);
     }
   };
 
@@ -118,6 +183,69 @@ export default function Predictions() {
           </div>
         </div>
       </motion.div>
+
+      {/* Predict Button */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="px-4 mb-6"
+      >
+        <Button
+          onClick={handlePredictLocation}
+          disabled={predicting || !user}
+          className="w-full h-14 bg-gradient-prediction text-prediction-foreground font-semibold text-lg rounded-2xl shadow-lg"
+        >
+          {predicting ? (
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Predicting...
+            </>
+          ) : (
+            <>
+              <Target className="w-5 h-5 mr-2" />
+              Predict My Location
+            </>
+          )}
+        </Button>
+        <p className="text-xs text-muted-foreground text-center mt-2">
+          Endpoint: POST /functions/v1/predict-location
+        </p>
+      </motion.div>
+
+      {/* Latest Prediction Result */}
+      {latestPrediction && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="px-4 mb-6"
+        >
+          <Card variant="glass" className="border-prediction/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Target className="w-4 h-4 text-prediction" />
+                Latest Prediction
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-foreground">{latestPrediction.prediction.label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {latestPrediction.prediction.latitude.toFixed(6)}°, {latestPrediction.prediction.longitude.toFixed(6)}°
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Based on {latestPrediction.prediction.basedOnDataPoints} data points
+                  </p>
+                </div>
+                <div className={cn("text-2xl font-bold", getConfidenceColor(latestPrediction.prediction.confidence))}>
+                  {Math.round(latestPrediction.prediction.confidence * 100)}%
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Stats */}
       <motion.div
@@ -264,7 +392,7 @@ export default function Predictions() {
                 <Target className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
                 <p className="text-sm text-muted-foreground">No predictions yet</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Predictions will appear as you collect more location data
+                  Click "Predict My Location" to generate a prediction
                 </p>
               </div>
             ) : (
@@ -305,6 +433,7 @@ export default function Predictions() {
         </Card>
       </motion.div>
 
+      <SOSButton />
       <BottomNavigation />
     </div>
   );
