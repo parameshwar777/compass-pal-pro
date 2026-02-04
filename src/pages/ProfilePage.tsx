@@ -4,7 +4,7 @@ import { Profile as ProfileComponent } from "@/components/profile/Profile";
 
 const ProfilePage = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
       <ProfileComponent />
       <SOSButton />
       <BottomNavigation />

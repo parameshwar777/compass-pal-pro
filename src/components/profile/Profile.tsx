@@ -232,16 +232,16 @@ export function Profile() {
   ];
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="flex-1 overflow-y-auto pb-4">
       {/* Header */}
-      <div className="p-4 pt-6">
+      <div className="px-3 py-3">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <h1 className="text-2xl font-bold text-foreground">Profile</h1>
-          <p className="text-muted-foreground mt-1">Manage your account</p>
+          <h1 className="text-base font-bold text-foreground">Profile</h1>
+          <p className="text-[10px] text-muted-foreground">Manage your account</p>
         </motion.div>
       </div>
 
@@ -250,41 +250,40 @@ export function Profile() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="px-4 mb-6"
+        className="px-3 mb-4"
       >
         <Card variant="gradient" className="overflow-hidden">
-          <div className="relative p-5">
-            {/* Background gradient accent */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-primary opacity-20 blur-3xl" />
+          <div className="relative p-4">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-primary opacity-20 blur-3xl" />
 
-            <div className="relative flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center">
+            <div className="relative flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center shrink-0">
                 {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full rounded-2xl object-cover" />
+                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full rounded-xl object-cover" />
                 ) : (
-                  <User className="w-8 h-8 text-primary-foreground" />
+                  <User className="w-6 h-6 text-primary-foreground" />
                 )}
               </div>
-              <div className="flex-1">
-                <h2 className="text-lg font-semibold text-foreground">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-semibold text-foreground truncate">
                   {profile?.name || user?.email?.split("@")[0] || "User"}
                 </h2>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-[10px] text-muted-foreground truncate">
                   {profile?.email || user?.email}
                 </p>
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="px-2 py-0.5 rounded-full bg-success/20 text-success text-xs font-medium">
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="px-1.5 py-0.5 rounded-full bg-success/20 text-success text-[9px] font-medium">
                     Active
                   </div>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-[9px] text-muted-foreground">
                     Since {user?.created_at ? new Date(user.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "N/A"}
                   </span>
                 </div>
               </div>
               <Dialog open={isEditing} onOpenChange={setIsEditing}>
                 <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-xl">
-                    <Edit2 className="w-5 h-5 text-muted-foreground" />
+                  <Button variant="ghost" size="icon" className="rounded-lg h-8 w-8">
+                    <Edit2 className="w-4 h-4 text-muted-foreground" />
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="bg-card border-border">
@@ -332,9 +331,9 @@ export function Profile() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="px-4 mb-6"
+        className="px-3 mb-4"
       >
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           {[
             { label: "Days Active", value: stats.daysActive.toString() },
             { label: "Locations", value: stats.locations.toString() },
@@ -342,10 +341,10 @@ export function Profile() {
           ].map((stat) => (
             <div
               key={stat.label}
-              className="text-center p-3 rounded-2xl bg-card border border-border"
+              className="text-center p-2 rounded-xl bg-card border border-border"
             >
-              <p className="text-xl font-bold text-foreground">{stat.value}</p>
-              <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
+              <p className="text-lg font-bold text-foreground">{stat.value}</p>
+              <p className="text-[9px] text-muted-foreground">{stat.label}</p>
             </div>
           ))}
         </div>
@@ -356,7 +355,7 @@ export function Profile() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="px-4"
+        className="px-3"
       >
         <Card variant="glass">
           <CardContent className="p-0 divide-y divide-border">
@@ -365,18 +364,18 @@ export function Profile() {
                 key={item.label}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 + index * 0.05 }}
-                className="flex items-center gap-4 p-4 cursor-pointer hover:bg-secondary/50 transition-colors"
+                transition={{ delay: 0.5 + index * 0.03 }}
+                className="flex items-center gap-3 p-3 cursor-pointer hover:bg-secondary/50 transition-colors"
                 onClick={item.toggle ? undefined : item.onClick}
               >
-                <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-                  <item.icon className="w-5 h-5 text-muted-foreground" />
+                <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                  <item.icon className="w-4 h-4 text-muted-foreground" />
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-foreground">
                     {item.label}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[10px] text-muted-foreground truncate">
                     {item.description}
                   </p>
                 </div>
@@ -386,7 +385,7 @@ export function Profile() {
                     onCheckedChange={item.onToggle}
                   />
                 ) : (
-                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                 )}
               </motion.div>
             ))}
@@ -399,11 +398,11 @@ export function Profile() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.7 }}
-        className="px-4 mt-6"
+        className="px-3 mt-4"
       >
         <Button 
           variant="outline" 
-          className="w-full gap-2 h-12 text-destructive border-destructive/30 hover:bg-destructive/10"
+          className="w-full gap-2 h-10 text-sm text-destructive border-destructive/30 hover:bg-destructive/10"
           onClick={handleSignOut}
         >
           <LogOut className="w-4 h-4" />
