@@ -1,12 +1,13 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Map, MessageSquare, AlertTriangle, Brain, User } from "lucide-react";
+import { Map, MessageSquare, AlertTriangle, Brain, Hotel, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/", icon: Map, label: "Map" },
   { path: "/predictions", icon: Brain, label: "Predict" },
   { path: "/sos", icon: AlertTriangle, label: "SOS" },
+  { path: "/stays", icon: Hotel, label: "Stays" },
   { path: "/assistant", icon: MessageSquare, label: "Chat" },
   { path: "/profile", icon: User, label: "Profile" },
 ];
@@ -26,11 +27,11 @@ export function BottomNavigation() {
             <NavLink
               key={item.path}
               to={item.path}
-              className="relative flex flex-col items-center gap-0.5 px-3 py-1"
+              className="relative flex flex-col items-center gap-0.5 px-1.5 py-1"
             >
               <motion.div
                 className={cn(
-                  "flex items-center justify-center w-10 h-10 rounded-xl transition-colors",
+                  "flex items-center justify-center w-8 h-8 rounded-lg transition-colors",
                   isActive 
                     ? isSOS ? "bg-sos/20" : "bg-accent/20" 
                     : "hover:bg-muted"
@@ -39,7 +40,7 @@ export function BottomNavigation() {
               >
                 <Icon
                   className={cn(
-                    "w-5 h-5 transition-colors",
+                    "w-4 h-4 transition-colors",
                     isActive 
                       ? isSOS ? "text-sos" : "text-accent" 
                       : "text-muted-foreground"
@@ -48,7 +49,7 @@ export function BottomNavigation() {
               </motion.div>
               <span
                 className={cn(
-                  "text-[10px] font-medium transition-colors",
+                  "text-[8px] font-medium transition-colors",
                   isActive 
                     ? isSOS ? "text-sos" : "text-accent" 
                     : "text-muted-foreground"
