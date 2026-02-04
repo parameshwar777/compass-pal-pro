@@ -1,11 +1,12 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Map, BarChart3, MessageSquare, User, AlertTriangle } from "lucide-react";
+import { Map, BarChart3, MessageSquare, User, Hotel } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/", icon: Map, label: "Map" },
   { path: "/analytics", icon: BarChart3, label: "Analytics" },
+  { path: "/stays", icon: Hotel, label: "Stays" },
   { path: "/assistant", icon: MessageSquare, label: "AI Chat" },
   { path: "/profile", icon: User, label: "Profile" },
 ];

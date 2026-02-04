@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Bot, User, Sparkles, MapPin, AlertCircle } from "lucide-react";
+import { Send, Bot, User, Sparkles, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 interface Message {
   id: string;
@@ -12,15 +15,6 @@ interface Message {
   timestamp: Date;
 }
 
-const initialMessages: Message[] = [
-  {
-    id: "1",
-    role: "assistant",
-    content: "Hello! I'm your AI travel assistant. I can help you understand your movement patterns, predict where you might go next, and suggest nearby places. What would you like to know?",
-    timestamp: new Date(),
-  },
-];
-
 const quickActions = [
   { label: "Where will I go next?", icon: MapPin },
   { label: "Show my patterns", icon: Sparkles },
@@ -28,10 +22,18 @@ const quickActions = [
 ];
 
 export function AIChat() {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "1",
+      role: "assistant",
+      content: "Hello! I'm SafeTrack AI, your intelligent travel assistant. I can help you understand your movement patterns, predict where you might go next, and suggest nearby places. What would you like to know?",
+      timestamp: new Date(),
+    },
+  ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,7 +44,7 @@ export function AIChat() {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isTyping) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -55,24 +57,44 @@ export function AIChat() {
     setInput("");
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const responses = [
-        "Based on your movement patterns, you typically head to your office around 9 AM on weekdays. There's an 85% chance you'll be there in the next 2 hours.",
-        "I've analyzed your location history. You frequently visit coffee shops in the morning and tend to go to the gym on Tuesday and Thursday evenings.",
-        "There are 5 highly-rated restaurants within 500 meters of your predicted location. Would you like me to list them?",
-      ];
+    try {
+      // Build message history for context
+      const messageHistory = messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+      messageHistory.push({ role: "user", content: input });
+
+      const response = await supabase.functions.invoke("chat", {
+        body: { messages: messageHistory, stream: false },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: responses[Math.floor(Math.random() * responses.length)],
+        content: response.data.message || "I'm sorry, I couldn't generate a response.",
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error("Chat error:", error);
+      toast.error("Failed to get response. Please try again.");
+      
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "I'm sorry, I encountered an error. Please try again.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const handleQuickAction = (action: string) => {
@@ -88,8 +110,8 @@ export function AIChat() {
             <Bot className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <h2 className="font-semibold text-foreground">AI Assistant</h2>
-            <p className="text-xs text-muted-foreground">Powered by GPT-4</p>
+            <h2 className="font-semibold text-foreground">SafeTrack AI</h2>
+            <p className="text-xs text-muted-foreground">Powered by OpenAI</p>
           </div>
         </div>
       </div>
@@ -131,7 +153,13 @@ export function AIChat() {
                     : "bg-card border border-border rounded-tl-sm"
                 )}
               >
-                <p className="text-sm leading-relaxed">{message.content}</p>
+                {message.role === "assistant" ? (
+                  <div className="text-sm leading-relaxed prose prose-sm prose-invert max-w-none">
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-sm leading-relaxed">{message.content}</p>
+                )}
                 <p className="text-2xs text-muted-foreground mt-1">
                   {message.timestamp.toLocaleTimeString([], {
                     hour: "2-digit",
