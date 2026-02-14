@@ -74,6 +74,7 @@ export type Database = {
           day: number
           hour: number
           id: string
+          label: string | null
           latitude: number
           longitude: number
           timestamp: string
@@ -84,6 +85,7 @@ export type Database = {
           day: number
           hour: number
           id?: string
+          label?: string | null
           latitude: number
           longitude: number
           timestamp?: string
@@ -94,6 +96,7 @@ export type Database = {
           day?: number
           hour?: number
           id?: string
+          label?: string | null
           latitude?: number
           longitude?: number
           timestamp?: string
