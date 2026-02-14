@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Navigation, Crosshair, Play, Pause, Target, MapPin, Copy, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,10 +6,14 @@ import { cn } from "@/lib/utils";
 import { useLocation } from "@/hooks/useLocation";
 import { LeafletMap } from "./LeafletMap";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function MapView() {
   const { currentLocation, isLoading, error, refreshLocation, startTracking, stopTracking, isTracking } = useLocation();
   const [showPrediction, setShowPrediction] = useState(true);
+  const [currentLabel, setCurrentLabel] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const coordsText = useMemo(() => {
     if (!currentLocation) return "";
@@ -19,9 +23,23 @@ export function MapView() {
   const accuracyM = currentLocation?.accuracy != null ? Math.round(currentLocation.accuracy) : null;
   const accuracyLabel = accuracyM == null ? null : accuracyM <= 30 ? "High" : accuracyM <= 100 ? "Medium" : "Low";
 
-  // Mock predicted location (offset from current)
-  const predictedLat = currentLocation ? currentLocation.latitude + 0.005 : undefined;
-  const predictedLng = currentLocation ? currentLocation.longitude + 0.003 : undefined;
+  // Fetch the latest label for the current location from location_logs
+  useEffect(() => {
+    if (!user || !currentLocation) return;
+    const fetchLabel = async () => {
+      const { data } = await supabase
+        .from("location_logs")
+        .select("label")
+        .eq("user_id", user.id)
+        .not("label", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (data && data.length > 0) {
+        setCurrentLabel(data[0].label);
+      }
+    };
+    fetchLabel();
+  }, [user, currentLocation]);
 
   const handleCopy = () => {
     if (coordsText) {
@@ -32,7 +50,7 @@ export function MapView() {
 
   return (
     <div className="flex flex-col h-full w-full bg-background">
-      {/* Map Container - Takes most of the space */}
+      {/* Map Container */}
       <div className="relative flex-1 min-h-0">
         <AnimatePresence mode="wait">
           {currentLocation ? (
@@ -45,8 +63,6 @@ export function MapView() {
               <LeafletMap
                 latitude={currentLocation.latitude}
                 longitude={currentLocation.longitude}
-                predictedLat={showPrediction ? predictedLat : undefined}
-                predictedLng={showPrediction ? predictedLng : undefined}
                 isTracking={isTracking}
                 className="w-full h-full"
               />
@@ -64,11 +80,13 @@ export function MapView() {
                   <MapPin className="w-8 h-8 text-muted-foreground" />
                 </div>
                 <p className="text-muted-foreground mb-4">
-                  {error || "Getting your location..."}
+                  {isLoading ? "Getting your location..." : error || "Location unavailable"}
                 </p>
-                <Button onClick={refreshLocation} variant="default" size="sm">
-                  Enable Location
-                </Button>
+                {!isLoading && (
+                  <Button onClick={refreshLocation} variant="default" size="sm">
+                    Enable Location
+                  </Button>
+                )}
               </div>
             </motion.div>
           )}
@@ -76,7 +94,7 @@ export function MapView() {
 
         {/* Loading Overlay */}
         <AnimatePresence>
-          {isLoading && (
+          {isLoading && !currentLocation && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -93,38 +111,42 @@ export function MapView() {
           )}
         </AnimatePresence>
 
-        {/* Floating Controls */}
-        <div className="absolute right-3 top-3 flex flex-col gap-2 z-20">
-          <Button
-            variant={showPrediction ? "default" : "outline"}
-            size="icon"
-            className={cn("h-10 w-10 rounded-full shadow-lg", showPrediction && "bg-prediction text-prediction-foreground")}
-            onClick={() => setShowPrediction(!showPrediction)}
-          >
-            <Target className="w-5 h-5" />
-          </Button>
-          <Button
-            variant={isTracking ? "default" : "outline"}
-            size="icon"
-            className={cn("h-10 w-10 rounded-full shadow-lg", isTracking && "bg-success text-success-foreground")}
-            onClick={isTracking ? stopTracking : startTracking}
-          >
-            {isTracking ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-          </Button>
-        </div>
+        {/* Floating Controls - always visible with higher z-index */}
+        {currentLocation && (
+          <div className="absolute right-3 top-3 flex flex-col gap-2 z-[1000]">
+            <Button
+              variant={showPrediction ? "default" : "outline"}
+              size="icon"
+              className={cn("h-10 w-10 rounded-full shadow-lg border-2 border-background", showPrediction && "bg-prediction text-prediction-foreground")}
+              onClick={() => setShowPrediction(!showPrediction)}
+            >
+              <Target className="w-5 h-5" />
+            </Button>
+            <Button
+              variant={isTracking ? "default" : "outline"}
+              size="icon"
+              className={cn("h-10 w-10 rounded-full shadow-lg border-2 border-background", isTracking && "bg-success text-success-foreground")}
+              onClick={isTracking ? stopTracking : startTracking}
+            >
+              {isTracking ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+            </Button>
+          </div>
+        )}
 
         {/* Recenter Button */}
-        <Button
-          variant="default"
-          size="icon"
-          className="absolute right-3 bottom-3 h-12 w-12 rounded-full shadow-lg bg-accent text-accent-foreground z-20"
-          onClick={refreshLocation}
-        >
-          <Crosshair className="w-6 h-6" />
-        </Button>
+        {currentLocation && (
+          <Button
+            variant="default"
+            size="icon"
+            className="absolute right-3 bottom-3 h-12 w-12 rounded-full shadow-lg bg-accent text-accent-foreground z-[1000]"
+            onClick={refreshLocation}
+          >
+            <Crosshair className="w-6 h-6" />
+          </Button>
+        )}
       </div>
 
-      {/* Location Info Panel - Fixed at bottom */}
+      {/* Location Info Panel */}
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -153,9 +175,14 @@ export function MapView() {
             </div>
             
             {currentLocation ? (
-              <p className="text-sm font-mono text-foreground truncate">
-                {coordsText}
-              </p>
+              <div>
+                {currentLabel && (
+                  <p className="text-sm font-semibold text-foreground capitalize mb-0.5">📍 {currentLabel}</p>
+                )}
+                <p className="text-xs font-mono text-muted-foreground truncate">
+                  {coordsText}
+                </p>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">Location unavailable</p>
             )}
@@ -179,7 +206,7 @@ export function MapView() {
                 asChild
               >
                 <a
-                  href={`https://www.openstreetmap.org/?mlat=${currentLocation.latitude}&mlon=${currentLocation.longitude}#map=17/${currentLocation.latitude}/${currentLocation.longitude}`}
+                  href={`https://www.google.com/maps?q=${currentLocation.latitude},${currentLocation.longitude}`}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -189,15 +216,6 @@ export function MapView() {
             )}
           </div>
         </div>
-
-        {showPrediction && predictedLat && predictedLng && (
-          <div className="mt-2 pt-2 border-t border-border">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-prediction" />
-              <span className="text-xs text-prediction">Predicted: {predictedLat.toFixed(4)}, {predictedLng.toFixed(4)}</span>
-            </div>
-          </div>
-        )}
       </motion.div>
     </div>
   );

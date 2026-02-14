@@ -1,15 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  Hotel,
-  Utensils,
-  Landmark,
-  Star,
-  MapPin,
-  Heart,
-  Search,
-  Loader2,
-  RefreshCw,
+  Hotel, Utensils, Landmark, Star, MapPin, Search, Loader2, RefreshCw, Navigation,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,12 +25,7 @@ interface Place {
   address: string | null;
 }
 
-const typeIcons = {
-  hotel: Hotel,
-  restaurant: Utensils,
-  attraction: Landmark,
-};
-
+const typeIcons = { hotel: Hotel, restaurant: Utensils, attraction: Landmark };
 const typeColors = {
   hotel: "bg-primary/20 text-primary",
   restaurant: "bg-warning/20 text-warning",
@@ -54,30 +41,18 @@ export default function Stays() {
 
   const { currentLocation, isLoading: locationLoading, error: locationError, refreshLocation } = useLocation();
 
-  // Auto-fetch when location becomes available
   useEffect(() => {
-    if (currentLocation && !fetched) {
-      fetchNearbyPlaces();
-    }
+    if (currentLocation && !fetched) fetchNearbyPlaces();
   }, [currentLocation]);
 
   const fetchNearbyPlaces = async () => {
-    if (!currentLocation) {
-      toast.error("Location not available. Enable GPS first.");
-      return;
-    }
-
+    if (!currentLocation) { toast.error("Enable GPS first."); return; }
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("nearby-places", {
-        body: {
-          latitude: currentLocation.latitude,
-          longitude: currentLocation.longitude,
-        },
+        body: { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
       });
-
       if (error) throw error;
-
       if (data?.places && Array.isArray(data.places)) {
         setPlaces(data.places);
         setFetched(true);
@@ -110,9 +85,13 @@ export default function Stays() {
     { type: "attraction", label: "Attractions", icon: Landmark },
   ];
 
+  const openInGoogleMaps = (place: Place) => {
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=&center=${place.latitude},${place.longitude}`;
+    window.open(url, "_blank");
+  };
+
   return (
     <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
-      {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -128,13 +107,7 @@ export default function Stays() {
               <p className="text-[10px] text-muted-foreground">Nearby places</p>
             </div>
           </div>
-          <Button
-            variant="glass"
-            size="sm"
-            className="h-8"
-            onClick={fetchNearbyPlaces}
-            disabled={loading || !currentLocation}
-          >
+          <Button variant="glass" size="sm" className="h-8" onClick={() => { setFetched(false); fetchNearbyPlaces(); }} disabled={loading || !currentLocation}>
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
           </Button>
         </div>
@@ -148,17 +121,10 @@ export default function Stays() {
             <p className="text-sm text-foreground truncate">
               {currentLocation
                 ? `${currentLocation.latitude.toFixed(4)}°, ${currentLocation.longitude.toFixed(4)}°`
-                : locationLoading
-                  ? "Getting your location…"
-                  : "Location not available"}
+                : locationLoading ? "Getting your location…" : "Location not available"}
             </p>
-            {locationError && (
-              <p className="text-xs text-warning mt-1">Enable GPS to see nearby places.</p>
-            )}
             {!currentLocation && !locationLoading && (
-              <Button variant="glass" size="sm" onClick={refreshLocation} className="mt-2 h-8">
-                Enable Location
-              </Button>
+              <Button variant="glass" size="sm" onClick={refreshLocation} className="mt-2 h-8">Enable Location</Button>
             )}
           </div>
         </div>
@@ -167,13 +133,7 @@ export default function Stays() {
         <div className="px-3 mb-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search places..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-10 bg-card border-border text-sm"
-            />
+            <Input type="text" placeholder="Search places..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 h-10 bg-card border-border text-sm" />
           </div>
         </div>
 
@@ -184,13 +144,7 @@ export default function Stays() {
               const Icon = tab.icon;
               const isActive = activeType === tab.type;
               return (
-                <Button
-                  key={tab.type}
-                  variant={isActive ? "default" : "glass"}
-                  size="sm"
-                  className={cn("flex-shrink-0 gap-1.5 h-8 text-xs", isActive && "bg-gradient-primary")}
-                  onClick={() => setActiveType(tab.type)}
-                >
+                <Button key={tab.type} variant={isActive ? "default" : "glass"} size="sm" className={cn("flex-shrink-0 gap-1.5 h-8 text-xs", isActive && "bg-gradient-primary")} onClick={() => setActiveType(tab.type)}>
                   <Icon className="w-3.5 h-3.5" />
                   {tab.label}
                 </Button>
@@ -228,32 +182,29 @@ export default function Stays() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.03 }}
                 >
-                  <Card variant="glass" className="overflow-hidden">
+                  <Card variant="glass" className="overflow-hidden cursor-pointer hover:border-accent/40 transition-colors" onClick={() => openInGoogleMaps(place)}>
                     <CardContent className="p-3">
                       <div className="flex items-start gap-3">
                         <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", colorClass)}>
                           <Icon className="w-5 h-5" />
                         </div>
-
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-sm text-foreground truncate">{place.name}</h3>
                           <p className="text-xs text-muted-foreground truncate">{place.category}</p>
-
                           <div className="flex items-center gap-3 mt-1.5">
                             <div className="flex items-center gap-1">
                               <Star className="w-3.5 h-3.5 text-warning fill-warning" />
-                              <span className="text-xs font-medium text-foreground">
-                                {place.rating?.toFixed(1)}
-                              </span>
+                              <span className="text-xs font-medium text-foreground">{place.rating?.toFixed(1)}</span>
                             </div>
                           </div>
-
                           {place.address && (
                             <p className="text-[10px] text-muted-foreground mt-1 truncate">
-                              <MapPin className="w-2.5 h-2.5 inline mr-0.5" />
-                              {place.address}
+                              <MapPin className="w-2.5 h-2.5 inline mr-0.5" />{place.address}
                             </p>
                           )}
+                        </div>
+                        <div className="flex-shrink-0 flex items-center">
+                          <Navigation className="w-4 h-4 text-accent" />
                         </div>
                       </div>
                     </CardContent>

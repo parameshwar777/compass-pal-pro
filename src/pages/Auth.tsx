@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, Lock, User, MapPin, Eye, EyeOff, ArrowRight, KeyRound } from "lucide-react";
+import { Mail, Lock, User, MapPin, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -16,16 +16,9 @@ export default function Auth() {
   const [name, setName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [otpStep, setOtpStep] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [generatedOtp, setGeneratedOtp] = useState("");
 
   const { signIn } = useAuth();
   const navigate = useNavigate();
-
-  const generateOtp = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  };
 
   const handleSignUp = async () => {
     if (!email || !password || !name) {
@@ -35,44 +28,12 @@ export default function Auth() {
 
     setLoading(true);
     try {
-      // Generate OTP and send via email
-      const code = generateOtp();
-      setGeneratedOtp(code);
-
-      const { error } = await supabase.functions.invoke("send-otp", {
-        body: { email, otp: code, type: "signup" },
-      });
-
-      if (error) {
-        console.error("OTP send error:", error);
-        toast.error("Failed to send verification code. Please try again.");
-        return;
-      }
-
-      setOtpStep(true);
-      toast.success("Verification code sent to your email!");
-    } catch (err) {
-      console.error("Signup error:", err);
-      toast.error("Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (otp !== generatedOtp) {
-      toast.error("Invalid verification code. Please try again.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // OTP verified - now create the account
+      // Direct signup without email verification
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { name, email_verified: true },
+          data: { name },
         },
       });
 
@@ -81,20 +42,18 @@ export default function Auth() {
         return;
       }
 
-      // Try to sign in immediately
+      // Try to sign in immediately after signup
       const { error: signInError } = await signIn(email, password);
       if (signInError) {
         toast.success("Account created! Please sign in.");
         setIsLogin(true);
-        setOtpStep(false);
-        setOtp("");
       } else {
         toast.success("Welcome to SafeTrack!");
         navigate("/");
       }
     } catch (err) {
-      console.error("Verify error:", err);
-      toast.error("Failed to create account. Please try again.");
+      console.error("Signup error:", err);
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -122,28 +81,10 @@ export default function Auth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otpStep) {
-      await handleVerifyOtp();
-    } else if (isLogin) {
+    if (isLogin) {
       await handleLogin();
     } else {
       await handleSignUp();
-    }
-  };
-
-  const handleResendOtp = async () => {
-    setLoading(true);
-    try {
-      const code = generateOtp();
-      setGeneratedOtp(code);
-      await supabase.functions.invoke("send-otp", {
-        body: { email, otp: code, type: "signup" },
-      });
-      toast.success("New code sent!");
-    } catch {
-      toast.error("Failed to resend code");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -176,90 +117,58 @@ export default function Auth() {
         <Card variant="glass" className="border-border/50">
           <CardHeader className="text-center pb-4">
             <CardTitle className="text-xl">
-              {otpStep ? "Verify Email" : isLogin ? "Welcome Back" : "Create Account"}
+              {isLogin ? "Welcome Back" : "Create Account"}
             </CardTitle>
             <CardDescription>
-              {otpStep
-                ? `Enter the 6-digit code sent to ${email}`
-                : isLogin
-                  ? "Sign in to access your dashboard"
-                  : "Start tracking your journeys today"}
+              {isLogin ? "Sign in to access your dashboard" : "Start tracking your journeys today"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {otpStep ? (
-                <>
-                  <div className="relative">
-                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      placeholder="Enter 6-digit code"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      className="pl-10 h-12 bg-secondary border-border text-center text-lg tracking-widest"
-                      maxLength={6}
-                      required
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="w-full text-sm text-muted-foreground"
-                    onClick={handleResendOtp}
-                    disabled={loading}
-                  >
-                    Didn't receive? Resend code
-                  </Button>
-                </>
-              ) : (
-                <>
-                  {!isLogin && (
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                      <Input
-                        type="text"
-                        placeholder="Full Name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="pl-10 h-12 bg-secondary border-border"
-                        required={!isLogin}
-                      />
-                    </div>
-                  )}
-
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      type="email"
-                      placeholder="Email Address"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10 h-12 bg-secondary border-border"
-                      required
-                    />
-                  </div>
-
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 pr-10 h-12 bg-secondary border-border"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
-                  </div>
-                </>
+              {!isLogin && (
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Full Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="pl-10 h-12 bg-secondary border-border"
+                    required={!isLogin}
+                  />
+                </div>
               )}
+
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  type="email"
+                  placeholder="Email Address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10 h-12 bg-secondary border-border"
+                  required
+                />
+              </div>
+
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 pr-10 h-12 bg-secondary border-border"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
 
               <Button
                 type="submit"
@@ -270,41 +179,28 @@ export default function Auth() {
                 {loading ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                    {otpStep ? "Verifying..." : isLogin ? "Signing in..." : "Sending code..."}
+                    {isLogin ? "Signing in..." : "Creating account..."}
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    {otpStep ? "Verify & Create Account" : isLogin ? "Sign In" : "Send Verification Code"}
+                    {isLogin ? "Sign In" : "Create Account"}
                     <ArrowRight className="w-4 h-4" />
                   </div>
                 )}
               </Button>
             </form>
 
-            {!otpStep && (
-              <div className="mt-6 text-center">
-                <p className="text-sm text-muted-foreground">
-                  {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-                  <button
-                    onClick={() => { setIsLogin(!isLogin); setOtpStep(false); setOtp(""); }}
-                    className="text-accent hover:underline font-medium"
-                  >
-                    {isLogin ? "Sign Up" : "Sign In"}
-                  </button>
-                </p>
-              </div>
-            )}
-
-            {otpStep && (
-              <div className="mt-4 text-center">
+            <div className="mt-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
                 <button
-                  onClick={() => { setOtpStep(false); setOtp(""); }}
-                  className="text-sm text-accent hover:underline"
+                  onClick={() => setIsLogin(!isLogin)}
+                  className="text-accent hover:underline font-medium"
                 >
-                  ← Back to signup
+                  {isLogin ? "Sign Up" : "Sign In"}
                 </button>
-              </div>
-            )}
+              </p>
+            </div>
           </CardContent>
         </Card>
       </motion.div>

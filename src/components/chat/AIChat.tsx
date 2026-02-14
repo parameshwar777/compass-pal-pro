@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Bot, User, Sparkles, MapPin, RefreshCw, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ export function AIChat() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
-  const { currentLocation } = useLocation();
+  const { currentLocation, refreshLocation } = useLocation();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -45,27 +45,31 @@ export function AIChat() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isTyping) return;
+  const sendMessage = useCallback(async (messageText: string) => {
+    if (!messageText.trim() || isTyping) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input,
+      content: messageText,
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    const userInput = input;
     setInput("");
     setIsTyping(true);
+
+    // If no location yet, try to get it
+    if (!currentLocation) {
+      refreshLocation();
+    }
 
     try {
       const messageHistory = messages.slice(-10).map((m) => ({
         role: m.role,
         content: m.content,
       }));
-      messageHistory.push({ role: "user", content: userInput });
+      messageHistory.push({ role: "user", content: messageText });
 
       const { data, error } = await supabase.functions.invoke("chat", {
         body: {
@@ -105,10 +109,12 @@ export function AIChat() {
     } finally {
       setIsTyping(false);
     }
-  };
+  }, [messages, isTyping, currentLocation, refreshLocation]);
+
+  const handleSend = () => sendMessage(input);
 
   const handleQuickAction = (action: string) => {
-    setInput(action);
+    sendMessage(action);
   };
 
   const clearChat = () => {
@@ -134,7 +140,7 @@ export function AIChat() {
             <div>
               <h2 className="font-semibold text-sm text-foreground">SafeTrack AI</h2>
               <p className="text-[10px] text-muted-foreground">
-                {currentLocation ? `📍 ${currentLocation.latitude.toFixed(3)}°, ${currentLocation.longitude.toFixed(3)}°` : "Location-aware assistant"}
+                {currentLocation ? `📍 ${currentLocation.latitude.toFixed(3)}°, ${currentLocation.longitude.toFixed(3)}°` : "📍 Getting location..."}
               </p>
             </div>
           </div>
@@ -218,7 +224,7 @@ export function AIChat() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick actions */}
+      {/* Quick actions - now directly sends the message */}
       <div className="flex-shrink-0 px-3 pb-1">
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
           {quickActions.map((action) => (
@@ -228,6 +234,7 @@ export function AIChat() {
               size="sm"
               className="flex-shrink-0 gap-1.5 h-7 text-[10px]"
               onClick={() => handleQuickAction(action.label)}
+              disabled={isTyping}
             >
               <action.icon className="w-3 h-3" />
               {action.label}
