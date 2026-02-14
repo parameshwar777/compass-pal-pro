@@ -35,7 +35,6 @@ export function useLocation(): UseLocationReturn {
 
   const saveLocationToDb = useCallback(async (latitude: number, longitude: number) => {
     if (!user) return;
-
     const now = new Date();
     try {
       const { error: insertError } = await supabase.from("location_logs").insert({
@@ -45,26 +44,14 @@ export function useLocation(): UseLocationReturn {
         day: now.getDay(),
         hour: now.getHours(),
       });
-      
-      if (insertError) {
-        console.error("Error saving location:", insertError);
-      } else {
-        console.log("Location saved:", { latitude, longitude });
-      }
+      if (insertError) console.error("Error saving location:", insertError);
     } catch (err) {
       console.error("Error saving location:", err);
     }
   }, [user]);
 
   const setLocationFromCoords = useCallback((latitude: number, longitude: number, accuracy?: number) => {
-    const newLocation = {
-      latitude,
-      longitude,
-      timestamp: new Date(),
-      accuracy,
-    };
-    console.log("Got position:", newLocation);
-    setCurrentLocation(newLocation);
+    setCurrentLocation({ latitude, longitude, timestamp: new Date(), accuracy });
     setIsLoading(false);
     setError(null);
   }, []);
@@ -83,7 +70,6 @@ export function useLocation(): UseLocationReturn {
     setIsLoading(true);
     setError(null);
 
-    // Capacitor/Android APK: prefer Capacitor Geolocation (handles permissions + WebView quirks)
     if (isNative) {
       void (async () => {
         try {
@@ -91,16 +77,11 @@ export function useLocation(): UseLocationReturn {
           if (perms.location !== "granted" && perms.coarseLocation !== "granted") {
             await Geolocation.requestPermissions({ permissions: ["location", "coarseLocation"] });
           }
-
-          const pos = await Geolocation.getCurrentPosition({
-            enableHighAccuracy: true,
-            timeout: 15000,
-          });
-
+          const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 15000 });
           setLocationFromCoords(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
         } catch (err: any) {
           console.error("Capacitor geolocation error:", err);
-          setError(err?.message || "Failed to get location. Please allow location permission.");
+          setError(err?.message || "Failed to get location.");
           setIsLoading(false);
         }
       })();
@@ -108,51 +89,34 @@ export function useLocation(): UseLocationReturn {
     }
     
     if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        handlePosition, 
-        handleError, 
-        {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 0,
-        }
-      );
+      navigator.geolocation.getCurrentPosition(handlePosition, handleError, {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 60000,
+      });
     } else {
       setError("Geolocation is not supported by your browser");
       setIsLoading(false);
     }
-  }, [handlePosition, handleError]);
+  }, [handlePosition, handleError, isNative, setLocationFromCoords]);
 
   const startTracking = useCallback(() => {
-    // Capacitor tracking
     if (isNative) {
-      console.log("Starting location tracking (native)...");
       void (async () => {
         try {
           const perms = await Geolocation.checkPermissions();
           if (perms.location !== "granted" && perms.coarseLocation !== "granted") {
             await Geolocation.requestPermissions({ permissions: ["location", "coarseLocation"] });
           }
-
-          const id = await Geolocation.watchPosition(
-            { enableHighAccuracy: true },
-            (position, err) => {
-              if (err) {
-                console.error("Native watchPosition error:", err);
-                setError(err.message || "Location tracking failed");
-                return;
-              }
-              if (!position) return;
-
-              setLocationFromCoords(position.coords.latitude, position.coords.longitude, position.coords.accuracy);
-              saveLocationToDb(position.coords.latitude, position.coords.longitude);
-            }
-          );
-
+          const id = await Geolocation.watchPosition({ enableHighAccuracy: true }, (position, err) => {
+            if (err) { setError(err.message || "Tracking failed"); return; }
+            if (!position) return;
+            setLocationFromCoords(position.coords.latitude, position.coords.longitude, position.coords.accuracy);
+            saveLocationToDb(position.coords.latitude, position.coords.longitude);
+          });
           setWatchId(id);
           setIsTracking(true);
         } catch (err: any) {
-          console.error("Error starting native tracking:", err);
           setError(err?.message || "Failed to start tracking");
           setIsLoading(false);
         }
@@ -160,12 +124,7 @@ export function useLocation(): UseLocationReturn {
       return;
     }
 
-    if (!("geolocation" in navigator)) {
-      setError("Geolocation is not supported");
-      return;
-    }
-
-    console.log("Starting location tracking...");
+    if (!("geolocation" in navigator)) { setError("Geolocation is not supported"); return; }
 
     const id = navigator.geolocation.watchPosition(
       (position) => {
@@ -173,13 +132,8 @@ export function useLocation(): UseLocationReturn {
         saveLocationToDb(position.coords.latitude, position.coords.longitude);
       },
       handleError,
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0,
-      }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
-
     setWatchId(id);
     setIsTracking(true);
   }, [handlePosition, handleError, saveLocationToDb, isNative, setLocationFromCoords]);
@@ -194,19 +148,12 @@ export function useLocation(): UseLocationReturn {
       setWatchId(null);
     }
     setIsTracking(false);
-    console.log("Stopped location tracking");
   }, [watchId, isNative]);
 
-  // Get initial location on mount
+  // Auto-request location on mount for ALL platforms
   useEffect(() => {
-    // IMPORTANT (APK): requesting location on mount can fail; require a tap instead.
-    if (isNative) {
-      setIsLoading(false);
-      setError("Tap Enable Location to request permission");
-      return;
-    }
     refreshLocation();
-  }, [isNative, refreshLocation]);
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {

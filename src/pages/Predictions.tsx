@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Target, MapPin, Clock, TrendingUp, Calendar, ChevronRight, Brain, Loader2, Tag, Plus } from "lucide-react";
+import { Target, MapPin, TrendingUp, Brain, Loader2, Tag, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { BottomNavigation } from "@/components/navigation/BottomNavigation";
 import { SOSButton } from "@/components/sos/SOSButton";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,7 +49,7 @@ export default function Predictions() {
   const [loggingLabel, setLoggingLabel] = useState(false);
   const [loggedLabels, setLoggedLabels] = useState<string[]>([]);
   const { user, session } = useAuth();
-  const { currentLocation } = useLocation();
+  const { currentLocation, refreshLocation, isLoading: locationLoading } = useLocation();
 
   useEffect(() => {
     if (user) fetchData();
@@ -85,8 +86,10 @@ export default function Predictions() {
   };
 
   const logCurrentLocation = async (label: string) => {
-    if (!user || !currentLocation) {
-      toast.error(currentLocation ? "Please log in" : "Location not available. Enable GPS first.");
+    if (!user) { toast.error("Please log in"); return; }
+    if (!currentLocation) {
+      toast.error("Getting your location... try again in a moment.");
+      refreshLocation();
       return;
     }
 
@@ -170,6 +173,11 @@ export default function Predictions() {
     return "text-muted-foreground";
   };
 
+  // Calculate average accuracy for the graph
+  const avgAccuracy = predictions.length > 0
+    ? Math.round((predictions.reduce((sum, p) => sum + p.confidence, 0) / predictions.length) * 100)
+    : 0;
+
   const allLabels = [...new Set([...quickLabels, ...loggedLabels])];
 
   return (
@@ -192,6 +200,25 @@ export default function Predictions() {
       </motion.div>
 
       <div className="flex-1 overflow-y-auto pb-2">
+        {/* Location Status */}
+        {!currentLocation && (
+          <div className="px-3 pt-3">
+            <Card className="border-warning/30 bg-warning/5">
+              <CardContent className="p-3 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-foreground">
+                    {locationLoading ? "Getting your location..." : "Location not available"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">Tap to enable GPS</p>
+                </div>
+                <Button variant="glass" size="sm" className="h-7 text-xs" onClick={refreshLocation} disabled={locationLoading}>
+                  {locationLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Enable"}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Log Location Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -247,9 +274,6 @@ export default function Predictions() {
                   {currentLocation.latitude.toFixed(4)}°, {currentLocation.longitude.toFixed(4)}°
                 </p>
               )}
-              {!currentLocation && (
-                <p className="text-[9px] text-warning mt-1.5">⚠ Enable GPS to log locations</p>
-              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -267,15 +291,9 @@ export default function Predictions() {
             className="w-full h-12 bg-gradient-prediction text-prediction-foreground font-semibold text-sm rounded-xl shadow-lg"
           >
             {predicting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Predicting...
-              </>
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Predicting...</>
             ) : (
-              <>
-                <Target className="w-4 h-4 mr-2" />
-                {currentLabel ? `Predict Next (from ${currentLabel})` : "Predict My Next Location"}
-              </>
+              <><Target className="w-4 h-4 mr-2" />{currentLabel ? `Predict Next (from ${currentLabel})` : "Predict My Next Location"}</>
             )}
           </Button>
         </motion.div>
@@ -326,28 +344,78 @@ export default function Predictions() {
           </motion.div>
         )}
 
-        {/* Stats */}
+        {/* Prediction Accuracy Graph */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="grid grid-cols-3 gap-2 px-3 mb-3"
+          transition={{ delay: 0.12 }}
+          className="px-3 mb-3"
         >
-          <Card variant="stat" className="text-center py-2">
-            <p className="text-lg font-bold text-accent">{loggedLabels.length}</p>
-            <p className="text-[9px] text-muted-foreground">Labels</p>
-          </Card>
-          <Card variant="stat" className="text-center py-2">
-            <p className="text-lg font-bold text-prediction">{predictions.length}</p>
-            <p className="text-[9px] text-muted-foreground">Predictions</p>
-          </Card>
-          <Card variant="stat" className="text-center py-2">
-            <p className="text-lg font-bold text-success">
-              {predictions.length > 0
-                ? `${Math.round((predictions.reduce((sum, p) => sum + p.confidence, 0) / predictions.length) * 100)}%`
-                : "N/A"}
-            </p>
-            <p className="text-[9px] text-muted-foreground">Avg Accuracy</p>
+          <Card variant="glass">
+            <CardHeader className="pb-2 px-3 pt-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <TrendingUp className="w-3.5 h-3.5 text-success" />
+                Prediction Accuracy
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-3 pb-3">
+              {predictions.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">No predictions yet to measure accuracy</p>
+              ) : (
+                <div className="space-y-3">
+                  {/* Overall accuracy bar */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-muted-foreground">Overall Accuracy</span>
+                      <span className={cn("text-sm font-bold", avgAccuracy >= 70 ? "text-success" : avgAccuracy >= 40 ? "text-warning" : "text-destructive")}>
+                        {avgAccuracy}%
+                      </span>
+                    </div>
+                    <Progress value={avgAccuracy} className="h-3" />
+                  </div>
+
+                  {/* Per-prediction bars */}
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] text-muted-foreground">Recent predictions confidence:</p>
+                    {predictions.slice(0, 5).map((p, i) => (
+                      <div key={p.id} className="flex items-center gap-2">
+                        <span className="text-[9px] text-muted-foreground w-16 truncate capitalize">{p.label || "?"}</span>
+                        <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${Math.round(p.confidence * 100)}%` }}
+                            transition={{ delay: i * 0.1, duration: 0.5 }}
+                            className={cn(
+                              "h-full rounded-full",
+                              p.confidence >= 0.7 ? "bg-success" : p.confidence >= 0.4 ? "bg-warning" : "bg-destructive"
+                            )}
+                          />
+                        </div>
+                        <span className="text-[9px] font-medium text-foreground w-8 text-right">
+                          {Math.round(p.confidence * 100)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-accent">{loggedLabels.length}</p>
+                      <p className="text-[9px] text-muted-foreground">Labels</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-prediction">{predictions.length}</p>
+                      <p className="text-[9px] text-muted-foreground">Predictions</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-success">{avgAccuracy}%</p>
+                      <p className="text-[9px] text-muted-foreground">Avg Accuracy</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
           </Card>
         </motion.div>
 
@@ -374,9 +442,7 @@ export default function Predictions() {
                 <div className="text-center py-4">
                   <Target className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
                   <p className="text-xs text-muted-foreground">No predictions yet</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Log locations first, then predict
-                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Log locations first, then predict</p>
                 </div>
               ) : (
                 <div className="space-y-2">
