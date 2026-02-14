@@ -1,14 +1,15 @@
 import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { 
-  Hotel, 
-  Utensils, 
-  Landmark, 
-  Star, 
-  MapPin, 
+import {
+  Hotel,
+  Utensils,
+  Landmark,
+  Star,
+  MapPin,
   Heart,
   Search,
-  Filter
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,22 +19,18 @@ import { SOSButton } from "@/components/sos/SOSButton";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useLocation } from "@/hooks/useLocation";
-import { haversineKm } from "@/lib/geo";
+import { toast } from "sonner";
 
 type PlaceType = "all" | "hotel" | "restaurant" | "attraction";
 
 interface Place {
-  id: string;
   name: string;
   type: string;
   category: string;
   latitude: number;
   longitude: number;
   rating: number;
-  visit_count: number;
   address: string | null;
-  image_url: string | null;
-  is_saved: boolean;
 }
 
 const typeIcons = {
@@ -50,66 +47,61 @@ const typeColors = {
 
 export default function Stays() {
   const [places, setPlaces] = useState<Place[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [activeType, setActiveType] = useState<PlaceType>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showAll, setShowAll] = useState(false);
+  const [fetched, setFetched] = useState(false);
 
   const { currentLocation, isLoading: locationLoading, error: locationError, refreshLocation } = useLocation();
 
-  const NEARBY_RADIUS_KM = 50;
-
+  // Auto-fetch when location becomes available
   useEffect(() => {
-    fetchPlaces();
-  }, []);
+    if (currentLocation && !fetched) {
+      fetchNearbyPlaces();
+    }
+  }, [currentLocation]);
 
-  const fetchPlaces = async () => {
+  const fetchNearbyPlaces = async () => {
+    if (!currentLocation) {
+      toast.error("Location not available. Enable GPS first.");
+      return;
+    }
+
+    setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("places")
-        .select("*")
-        .order("rating", { ascending: false });
+      const { data, error } = await supabase.functions.invoke("nearby-places", {
+        body: {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+        },
+      });
 
       if (error) throw error;
-      setPlaces(data || []);
+
+      if (data?.places && Array.isArray(data.places)) {
+        setPlaces(data.places);
+        setFetched(true);
+        toast.success(`Found ${data.places.length} places near you`);
+      } else {
+        toast.error("No places found");
+      }
     } catch (error) {
-      console.error("Error fetching places:", error);
+      console.error("Error fetching nearby places:", error);
+      toast.error("Failed to fetch nearby places");
     } finally {
       setLoading(false);
     }
   };
 
-  const placesWithDistance = useMemo(() => {
-    if (!currentLocation) return places.map((p) => ({ ...p, distance_km: null as number | null }));
-    return places.map((p) => ({
-      ...p,
-      distance_km: haversineKm(
-        { lat: currentLocation.latitude, lng: currentLocation.longitude },
-        { lat: p.latitude, lng: p.longitude }
-      ),
-    }));
-  }, [places, currentLocation]);
-
   const filteredPlaces = useMemo(() => {
-    return placesWithDistance
-      .filter((place) => {
-        const matchesType = activeType === "all" || place.type === activeType;
-        const matchesSearch =
-          place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          place.category.toLowerCase().includes(searchQuery.toLowerCase());
-
-        const matchesNearby =
-          showAll ||
-          !currentLocation ||
-          (place.distance_km != null && place.distance_km <= NEARBY_RADIUS_KM);
-
-        return matchesType && matchesSearch && matchesNearby;
-      })
-      .sort((a, b) => {
-        if (a.distance_km == null || b.distance_km == null) return 0;
-        return a.distance_km - b.distance_km;
-      });
-  }, [placesWithDistance, activeType, searchQuery, showAll, currentLocation]);
+    return places.filter((place) => {
+      const matchesType = activeType === "all" || place.type === activeType;
+      const matchesSearch =
+        place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        place.category.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesType && matchesSearch;
+    });
+  }, [places, activeType, searchQuery]);
 
   const tabs: { type: PlaceType; label: string; icon: any }[] = [
     { type: "all", label: "All", icon: MapPin },
@@ -126,184 +118,151 @@ export default function Stays() {
         animate={{ opacity: 1, y: 0 }}
         className="shrink-0 px-3 py-3 border-b border-border bg-card/80 backdrop-blur-sm"
       >
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
-            <Hotel className="w-4 h-4 text-accent" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
+              <Hotel className="w-4 h-4 text-accent" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-foreground">Stays</h1>
+              <p className="text-[10px] text-muted-foreground">Nearby places</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-base font-bold text-foreground">Stays</h1>
-            <p className="text-[10px] text-muted-foreground">Places within ~{NEARBY_RADIUS_KM}km</p>
-          </div>
+          <Button
+            variant="glass"
+            size="sm"
+            className="h-8"
+            onClick={fetchNearbyPlaces}
+            disabled={loading || !currentLocation}
+          >
+            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+          </Button>
         </div>
       </motion.header>
 
       <main className="flex-1 overflow-y-auto pb-4 safe-bottom">
-
-      {/* Location hint */}
-      <div className="px-3 pt-3 mb-3">
-        <div className="glass-card rounded-2xl p-3 flex flex-col gap-2">
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">Using location</p>
+        {/* Location hint */}
+        <div className="px-3 pt-3 mb-3">
+          <div className="glass-card rounded-2xl p-3">
+            <p className="text-xs text-muted-foreground">Your location</p>
             <p className="text-sm text-foreground truncate">
               {currentLocation
-                ? `${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}`
+                ? `${currentLocation.latitude.toFixed(4)}°, ${currentLocation.longitude.toFixed(4)}°`
                 : locationLoading
                   ? "Getting your location…"
                   : "Location not available"}
             </p>
             {locationError && (
-              <p className="text-xs text-warning mt-1 truncate">
-                Enable “Precise location” to see nearby results.
-              </p>
+              <p className="text-xs text-warning mt-1">Enable GPS to see nearby places.</p>
+            )}
+            {!currentLocation && !locationLoading && (
+              <Button variant="glass" size="sm" onClick={refreshLocation} className="mt-2 h-8">
+                Enable Location
+              </Button>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
-            <Button variant="glass" size="sm" onClick={refreshLocation} className="h-9">
-              Refresh
-            </Button>
-            <Button
-              variant={showAll ? "default" : "glass"}
-              size="sm"
-              onClick={() => setShowAll((v) => !v)}
-              className={cn("h-9", !showAll && "")}
-            >
-              {showAll ? "Showing all" : "Near me"}
-            </Button>
+        </div>
+
+        {/* Search */}
+        <div className="px-3 mb-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search places..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-10 bg-card border-border text-sm"
+            />
           </div>
         </div>
-      </div>
 
-      {/* Search */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="px-3 mb-4"
-      >
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search places..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-12 bg-card border-border"
-          />
-        </div>
-      </motion.div>
-
-      {/* Type Tabs */}
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.2 }}
-        className="px-3 mb-4"
-      >
-        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeType === tab.type;
-            return (
-              <Button
-                key={tab.type}
-                variant={isActive ? "default" : "glass"}
-                size="sm"
-                className={cn(
-                  "flex-shrink-0 gap-2",
-                  isActive && "bg-gradient-primary"
-                )}
-                onClick={() => setActiveType(tab.type)}
-              >
-                <Icon className="w-4 h-4" />
-                {tab.label}
-              </Button>
-            );
-          })}
-        </div>
-      </motion.div>
-
-      {/* Places List */}
-      <div className="px-3 space-y-3">
-        {loading ? (
-          // Loading skeleton
-          Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 rounded-2xl bg-card animate-pulse" />
-          ))
-        ) : filteredPlaces.length === 0 ? (
-          <div className="text-center py-12">
-            <MapPin className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              {currentLocation && !showAll
-                ? `No places found within ${NEARBY_RADIUS_KM}km of you`
-                : "No places found"}
-            </p>
+        {/* Type Tabs */}
+        <div className="px-3 mb-3">
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeType === tab.type;
+              return (
+                <Button
+                  key={tab.type}
+                  variant={isActive ? "default" : "glass"}
+                  size="sm"
+                  className={cn("flex-shrink-0 gap-1.5 h-8 text-xs", isActive && "bg-gradient-primary")}
+                  onClick={() => setActiveType(tab.type)}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {tab.label}
+                </Button>
+              );
+            })}
           </div>
-        ) : (
-          filteredPlaces.map((place, index) => {
-            const Icon = typeIcons[place.type as keyof typeof typeIcons] || MapPin;
-            const colorClass = typeColors[place.type as keyof typeof typeColors] || "bg-accent/20 text-accent";
-            
-            return (
-              <motion.div
-                key={place.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + index * 0.05 }}
-              >
-                <Card variant="glass" className="overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0", colorClass)}>
-                        <Icon className="w-6 h-6" />
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h3 className="font-semibold text-foreground truncate">
-                              {place.name}
-                            </h3>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {place.category}
-                            </p>
-                          </div>
-                          <Button variant="ghost" size="icon" className="flex-shrink-0 rounded-lg">
-                            <Heart className="w-4 h-4 text-muted-foreground" />
-                          </Button>
+        </div>
+
+        {/* Places List */}
+        <div className="px-3 space-y-2">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Loader2 className="w-8 h-8 text-accent animate-spin" />
+              <p className="text-sm text-muted-foreground">Finding places near you...</p>
+            </div>
+          ) : !fetched && !currentLocation ? (
+            <div className="text-center py-12">
+              <MapPin className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Enable location to discover nearby places</p>
+            </div>
+          ) : filteredPlaces.length === 0 ? (
+            <div className="text-center py-12">
+              <MapPin className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">No places found</p>
+            </div>
+          ) : (
+            filteredPlaces.map((place, index) => {
+              const Icon = typeIcons[place.type as keyof typeof typeIcons] || MapPin;
+              const colorClass = typeColors[place.type as keyof typeof typeColors] || "bg-accent/20 text-accent";
+
+              return (
+                <motion.div
+                  key={`${place.name}-${index}`}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.03 }}
+                >
+                  <Card variant="glass" className="overflow-hidden">
+                    <CardContent className="p-3">
+                      <div className="flex items-start gap-3">
+                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", colorClass)}>
+                          <Icon className="w-5 h-5" />
                         </div>
-                        
-                        <div className="flex items-center gap-4 mt-2">
-                          <div className="flex items-center gap-1">
-                            <Star className="w-4 h-4 text-warning fill-warning" />
-                            <span className="text-sm font-medium text-foreground">
-                              {place.rating?.toFixed(1)}
-                            </span>
+
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm text-foreground truncate">{place.name}</h3>
+                          <p className="text-xs text-muted-foreground truncate">{place.category}</p>
+
+                          <div className="flex items-center gap-3 mt-1.5">
+                            <div className="flex items-center gap-1">
+                              <Star className="w-3.5 h-3.5 text-warning fill-warning" />
+                              <span className="text-xs font-medium text-foreground">
+                                {place.rating?.toFixed(1)}
+                              </span>
+                            </div>
                           </div>
-                          <span className="text-xs text-muted-foreground">
-                            {place.visit_count?.toLocaleString()} visits
-                          </span>
-                          {place.distance_km != null && (
-                            <span className="text-xs text-muted-foreground">
-                              {place.distance_km.toFixed(1)}km
-                            </span>
+
+                          {place.address && (
+                            <p className="text-[10px] text-muted-foreground mt-1 truncate">
+                              <MapPin className="w-2.5 h-2.5 inline mr-0.5" />
+                              {place.address}
+                            </p>
                           )}
                         </div>
-                        
-                        {place.address && (
-                          <p className="text-xs text-muted-foreground mt-1 truncate">
-                            <MapPin className="w-3 h-3 inline mr-1" />
-                            {place.address}
-                          </p>
-                        )}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })
-        )}
-      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })
+          )}
+        </div>
 
         <SOSButton />
       </main>
