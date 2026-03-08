@@ -1,18 +1,18 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, Phone, X } from "lucide-react";
+import { AlertTriangle, Phone, X, MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLocation } from "@/hooks/useLocation";
+import { useLocationContext } from "@/contexts/LocationContext";
 import { toast } from "sonner";
 
 export function SOSButton() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const { user } = useAuth();
-  const { currentLocation } = useLocation();
+  const { currentLocation } = useLocationContext();
 
   const handleActivate = async () => {
     if (!user) {

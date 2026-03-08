@@ -35,7 +35,7 @@ export function AIChat() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
-  const { currentLocation, refreshLocation } = useLocation();
+  const { currentLocation, refreshLocation } = useLocationContext();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
