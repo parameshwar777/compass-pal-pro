@@ -40,7 +40,7 @@ export default function Stays() {
   const [searchQuery, setSearchQuery] = useState("");
   const [fetched, setFetched] = useState(false);
 
-  const { currentLocation, isLoading: locationLoading, error: locationError, refreshLocation } = useLocation();
+  const { currentLocation, placeName, isLoading: locationLoading, error: locationError, refreshLocation } = useLocationContext();
 
   useEffect(() => {
     if (currentLocation && !fetched) fetchNearbyPlaces();
