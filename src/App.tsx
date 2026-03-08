@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { LocationProvider } from "@/contexts/LocationContext";
 import Index from "./pages/Index";
 import Analytics from "./pages/Analytics";
 import Assistant from "./pages/Assistant";
@@ -70,7 +71,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <LocationProvider>
+            <AppRoutes />
+          </LocationProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

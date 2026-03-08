@@ -9,7 +9,8 @@ import { BottomNavigation } from "@/components/navigation/BottomNavigation";
 import { SOSButton } from "@/components/sos/SOSButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLocation } from "@/hooks/useLocation";
+import { useLocationContext } from "@/contexts/LocationContext";
+import { reverseGeocode } from "@/lib/geocoding";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -21,6 +22,7 @@ interface Prediction {
   label: string | null;
   prediction_timestamp: string;
   created_at: string;
+  placeName?: string;
 }
 
 interface PredictionResult {
@@ -30,6 +32,7 @@ interface PredictionResult {
     confidence: number;
     label: string;
     basedOnDataPoints: number;
+    placeName?: string;
   };
   totalDataPoints: number;
   labeledDataPoints: number;
@@ -49,7 +52,7 @@ export default function Predictions() {
   const [loggingLabel, setLoggingLabel] = useState(false);
   const [loggedLabels, setLoggedLabels] = useState<string[]>([]);
   const { user, session } = useAuth();
-  const { currentLocation, refreshLocation, isLoading: locationLoading } = useLocation();
+  const { currentLocation, placeName, refreshLocation, isLoading: locationLoading } = useLocationContext();
 
   useEffect(() => {
     if (user) fetchData();
@@ -73,7 +76,19 @@ export default function Predictions() {
           .limit(100),
       ]);
 
-      if (predictionsRes.data) setPredictions(predictionsRes.data);
+      if (predictionsRes.data) {
+        // Reverse geocode prediction locations
+        const withNames = await Promise.all(
+          predictionsRes.data.map(async (p) => {
+            if (p.label && p.label !== "Unknown" && !p.label.startsWith("~")) {
+              return { ...p, placeName: p.label };
+            }
+            const name = await reverseGeocode(p.predicted_lat, p.predicted_lng);
+            return { ...p, placeName: name };
+          })
+        );
+        setPredictions(withNames);
+      }
       if (labelsRes.data) {
         const unique = [...new Set(labelsRes.data.map((l) => l.label).filter(Boolean))] as string[];
         setLoggedLabels(unique);
@@ -156,8 +171,15 @@ export default function Predictions() {
         return;
       }
 
+      // Resolve place name for prediction
+      let predPlaceName = data.prediction.label;
+      if (!predPlaceName || predPlaceName === "Unknown" || predPlaceName.startsWith("~")) {
+        predPlaceName = await reverseGeocode(data.prediction.latitude, data.prediction.longitude);
+      }
+      data.prediction.placeName = predPlaceName;
+
       setLatestPrediction(data);
-      toast.success(`Next: ${data.prediction.label} (${Math.round(data.prediction.confidence * 100)}% confidence)`);
+      toast.success(`Next: ${predPlaceName} (${Math.round(data.prediction.confidence * 100)}% confidence)`);
       fetchData();
     } catch (error) {
       console.error("Prediction error:", error);
@@ -173,7 +195,6 @@ export default function Predictions() {
     return "text-muted-foreground";
   };
 
-  // Calculate average accuracy for the graph
   const avgAccuracy = predictions.length > 0
     ? Math.round((predictions.reduce((sum, p) => sum + p.confidence, 0) / predictions.length) * 100)
     : 0;
@@ -200,7 +221,23 @@ export default function Predictions() {
       </motion.div>
 
       <div className="flex-1 overflow-y-auto pb-2">
-        {/* Location Status */}
+        {/* Location Status - show place name */}
+        {currentLocation && (
+          <div className="px-3 pt-3">
+            <Card className="border-accent/30 bg-accent/5">
+              <CardContent className="p-3 flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-accent shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-foreground truncate">
+                    📍 {placeName || `${currentLocation.latitude.toFixed(4)}°, ${currentLocation.longitude.toFixed(4)}°`}
+                  </p>
+                  <p className="text-[9px] text-muted-foreground">Your current location</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {!currentLocation && (
           <div className="px-3 pt-3">
             <Card className="border-warning/30 bg-warning/5">
@@ -268,12 +305,6 @@ export default function Predictions() {
                   <Plus className="w-3 h-3" />
                 </Button>
               </div>
-              {currentLocation && (
-                <p className="text-[9px] text-muted-foreground mt-1.5 flex items-center gap-1">
-                  <MapPin className="w-2.5 h-2.5" />
-                  {currentLocation.latitude.toFixed(4)}°, {currentLocation.longitude.toFixed(4)}°
-                </p>
-              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -315,7 +346,9 @@ export default function Predictions() {
               <CardContent className="px-3 pb-3">
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <p className="text-lg font-bold text-foreground capitalize">{latestPrediction.prediction.label}</p>
+                    <p className="text-lg font-bold text-foreground capitalize">
+                      {latestPrediction.prediction.placeName || latestPrediction.prediction.label}
+                    </p>
                     <p className="text-[10px] text-muted-foreground">
                       Based on {latestPrediction.prediction.basedOnDataPoints} data points
                     </p>
@@ -363,7 +396,6 @@ export default function Predictions() {
                 <p className="text-xs text-muted-foreground text-center py-2">No predictions yet to measure accuracy</p>
               ) : (
                 <div className="space-y-3">
-                  {/* Overall accuracy bar */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-muted-foreground">Overall Accuracy</span>
@@ -374,12 +406,11 @@ export default function Predictions() {
                     <Progress value={avgAccuracy} className="h-3" />
                   </div>
 
-                  {/* Per-prediction bars */}
                   <div className="space-y-1.5">
                     <p className="text-[10px] text-muted-foreground">Recent predictions confidence:</p>
                     {predictions.slice(0, 5).map((p, i) => (
                       <div key={p.id} className="flex items-center gap-2">
-                        <span className="text-[9px] text-muted-foreground w-16 truncate capitalize">{p.label || "?"}</span>
+                        <span className="text-[9px] text-muted-foreground w-20 truncate capitalize">{p.placeName || p.label || "?"}</span>
                         <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
                           <motion.div
                             initial={{ width: 0 }}
@@ -398,7 +429,6 @@ export default function Predictions() {
                     ))}
                   </div>
 
-                  {/* Stats */}
                   <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border">
                     <div className="text-center">
                       <p className="text-lg font-bold text-accent">{loggedLabels.length}</p>
@@ -459,7 +489,7 @@ export default function Predictions() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-foreground truncate capitalize">
-                          {prediction.label || "Unknown"}
+                          {prediction.placeName || prediction.label || "Unknown"}
                         </p>
                         <p className="text-[10px] text-muted-foreground">
                           {new Date(prediction.prediction_timestamp).toLocaleString()}
