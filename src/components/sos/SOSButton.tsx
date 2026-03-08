@@ -37,31 +37,52 @@ export function SOSButton() {
         return;
       }
 
-      const emailContacts = contacts.filter(c => c.email);
-      if (emailContacts.length === 0) {
-        toast.error("No contacts with email addresses. Add email to your contacts.");
-        setIsActive(false);
-        return;
-      }
-
       const locationText = currentLocation
         ? `https://www.google.com/maps?q=${currentLocation.latitude},${currentLocation.longitude}`
         : "Location unavailable";
 
-      const { data, error } = await supabase.functions.invoke("send-sos", {
-        body: {
-          contacts: emailContacts.map(c => ({ name: c.name, email: c.email, phone: c.phone })),
-          location: locationText,
-          coordinates: currentLocation ? {
-            lat: currentLocation.latitude,
-            lng: currentLocation.longitude,
-          } : null,
-        },
-      });
+      const coordsText = currentLocation
+        ? `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`
+        : "unavailable";
 
-      if (error) throw error;
+      // Try sending email via edge function
+      const emailContacts = contacts.filter(c => c.email);
+      let emailSent = 0;
+      if (emailContacts.length > 0) {
+        try {
+          const { data, error } = await supabase.functions.invoke("send-sos", {
+            body: {
+              contacts: emailContacts.map(c => ({ name: c.name, email: c.email, phone: c.phone })),
+              location: locationText,
+              coordinates: currentLocation ? {
+                lat: currentLocation.latitude,
+                lng: currentLocation.longitude,
+              } : null,
+            },
+          });
+          if (!error) emailSent = emailContacts.length;
+        } catch (e) {
+          console.warn("Email SOS failed, falling back to SMS:", e);
+        }
+      }
 
-      toast.success(`SOS alert sent to ${emailContacts.length} contact(s)!`);
+      // Also trigger SMS via native sms: URI for contacts with phone numbers
+      const phoneContacts = contacts.filter(c => c.phone);
+      if (phoneContacts.length > 0) {
+        const phones = phoneContacts.map(c => c.phone).join(",");
+        const smsBody = encodeURIComponent(
+          `🚨 EMERGENCY SOS ALERT! I need help immediately!\n\n📍 My location: ${locationText}\n📐 Coordinates: ${coordsText}\n\nPlease try to reach me or contact emergency services.`
+        );
+        // Open native SMS app with pre-filled message
+        window.open(`sms:${phones}?body=${smsBody}`, "_self");
+      }
+
+      const totalSent = emailSent + phoneContacts.length;
+      if (totalSent > 0) {
+        toast.success(`SOS alert triggered for ${totalSent} contact(s)!`);
+      } else {
+        toast.error("No contacts with email or phone. Add contacts in SOS tab.");
+      }
     } catch (error) {
       console.error("SOS error:", error);
       toast.error("Failed to send SOS alert");
