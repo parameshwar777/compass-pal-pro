@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLocation } from "@/hooks/useLocation";
+import { useLocationContext } from "@/contexts/LocationContext";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -35,7 +35,7 @@ export function AIChat() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
-  const { currentLocation, refreshLocation } = useLocation();
+  const { currentLocation, refreshLocation } = useLocationContext();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

@@ -3,14 +3,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Navigation, Crosshair, Play, Pause, Target, MapPin, Copy, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useLocation } from "@/hooks/useLocation";
+import { useLocationContext } from "@/contexts/LocationContext";
 import { LeafletMap } from "./LeafletMap";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function MapView() {
-  const { currentLocation, isLoading, error, refreshLocation, startTracking, stopTracking, isTracking } = useLocation();
+  const { currentLocation, placeName, isLoading, error, refreshLocation, startTracking, stopTracking, isTracking } = useLocationContext();
   const [showPrediction, setShowPrediction] = useState(true);
   const [currentLabel, setCurrentLabel] = useState<string | null>(null);
   const { user } = useAuth();
@@ -111,7 +111,7 @@ export function MapView() {
           )}
         </AnimatePresence>
 
-        {/* Floating Controls - always visible with higher z-index */}
+        {/* Floating Controls */}
         {currentLocation && (
           <div className="absolute right-3 top-3 flex flex-col gap-2 z-[1000]">
             <Button
@@ -176,8 +176,10 @@ export function MapView() {
             
             {currentLocation ? (
               <div>
-                {currentLabel && (
-                  <p className="text-sm font-semibold text-foreground capitalize mb-0.5">📍 {currentLabel}</p>
+                {(currentLabel || placeName) && (
+                  <p className="text-sm font-semibold text-foreground capitalize mb-0.5">
+                    📍 {currentLabel || placeName}
+                  </p>
                 )}
                 <p className="text-xs font-mono text-muted-foreground truncate">
                   {coordsText}
@@ -189,27 +191,12 @@ export function MapView() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              onClick={handleCopy}
-              disabled={!coordsText}
-            >
+            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleCopy} disabled={!coordsText}>
               <Copy className="w-4 h-4" />
             </Button>
             {currentLocation && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9"
-                asChild
-              >
-                <a
-                  href={`https://www.google.com/maps?q=${currentLocation.latitude},${currentLocation.longitude}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+              <Button variant="ghost" size="icon" className="h-9 w-9" asChild>
+                <a href={`https://www.google.com/maps?q=${currentLocation.latitude},${currentLocation.longitude}`} target="_blank" rel="noreferrer">
                   <ExternalLink className="w-4 h-4" />
                 </a>
               </Button>

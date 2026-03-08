@@ -10,7 +10,8 @@ import { BottomNavigation } from "@/components/navigation/BottomNavigation";
 import { SOSButton } from "@/components/sos/SOSButton";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { useLocation } from "@/hooks/useLocation";
+import { useLocationContext } from "@/contexts/LocationContext";
+import { reverseGeocode } from "@/lib/geocoding";
 import { toast } from "sonner";
 
 type PlaceType = "all" | "hotel" | "restaurant" | "attraction";
@@ -39,7 +40,7 @@ export default function Stays() {
   const [searchQuery, setSearchQuery] = useState("");
   const [fetched, setFetched] = useState(false);
 
-  const { currentLocation, isLoading: locationLoading, error: locationError, refreshLocation } = useLocation();
+  const { currentLocation, placeName, isLoading: locationLoading, error: locationError, refreshLocation } = useLocationContext();
 
   useEffect(() => {
     if (currentLocation && !fetched) fetchNearbyPlaces();
@@ -120,7 +121,7 @@ export default function Stays() {
             <p className="text-xs text-muted-foreground">Your location</p>
             <p className="text-sm text-foreground truncate">
               {currentLocation
-                ? `${currentLocation.latitude.toFixed(4)}°, ${currentLocation.longitude.toFixed(4)}°`
+                ? (placeName || `${currentLocation.latitude.toFixed(4)}°, ${currentLocation.longitude.toFixed(4)}°`)
                 : locationLoading ? "Getting your location…" : "Location not available"}
             </p>
             {!currentLocation && !locationLoading && (
