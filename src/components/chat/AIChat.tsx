@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLocation } from "@/hooks/useLocation";
+import { useLocationContext } from "@/contexts/LocationContext";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 

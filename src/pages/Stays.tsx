@@ -121,7 +121,7 @@ export default function Stays() {
             <p className="text-xs text-muted-foreground">Your location</p>
             <p className="text-sm text-foreground truncate">
               {currentLocation
-                ? `${currentLocation.latitude.toFixed(4)}°, ${currentLocation.longitude.toFixed(4)}°`
+                ? (placeName || `${currentLocation.latitude.toFixed(4)}°, ${currentLocation.longitude.toFixed(4)}°`)
                 : locationLoading ? "Getting your location…" : "Location not available"}
             </p>
             {!currentLocation && !locationLoading && (
