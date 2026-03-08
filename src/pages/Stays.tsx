@@ -10,7 +10,8 @@ import { BottomNavigation } from "@/components/navigation/BottomNavigation";
 import { SOSButton } from "@/components/sos/SOSButton";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { useLocation } from "@/hooks/useLocation";
+import { useLocationContext } from "@/contexts/LocationContext";
+import { reverseGeocode } from "@/lib/geocoding";
 import { toast } from "sonner";
 
 type PlaceType = "all" | "hotel" | "restaurant" | "attraction";
