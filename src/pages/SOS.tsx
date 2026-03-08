@@ -8,7 +8,7 @@ import { BottomNavigation } from "@/components/navigation/BottomNavigation";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { useLocation } from "@/hooks/useLocation";
+import { useLocationContext as useLocation } from "@/contexts/LocationContext";
 import { cn } from "@/lib/utils";
 
 interface EmergencyContact {
