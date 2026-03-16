@@ -160,6 +160,7 @@ export type Database = {
           label: string | null
           predicted_lat: number
           predicted_lng: number
+          prediction_method: string | null
           prediction_timestamp: string
           user_id: string
         }
@@ -170,6 +171,7 @@ export type Database = {
           label?: string | null
           predicted_lat: number
           predicted_lng: number
+          prediction_method?: string | null
           prediction_timestamp?: string
           user_id: string
         }
@@ -180,6 +182,7 @@ export type Database = {
           label?: string | null
           predicted_lat?: number
           predicted_lng?: number
+          prediction_method?: string | null
           prediction_timestamp?: string
           user_id?: string
         }
