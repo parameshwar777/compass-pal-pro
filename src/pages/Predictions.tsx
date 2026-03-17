@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Target, MapPin, TrendingUp, Brain, Loader2, Tag, Plus } from "lucide-react";
+import { Target, MapPin, TrendingUp, Brain, Loader2, Tag, Plus, ArrowRight, Calendar, Clock, Route } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,9 +20,18 @@ interface Prediction {
   predicted_lng: number;
   confidence: number;
   label: string | null;
+  prediction_method: string | null;
   prediction_timestamp: string;
   created_at: string;
   placeName?: string;
+}
+
+interface AlternativePrediction {
+  label: string;
+  latitude: number;
+  longitude: number;
+  confidence: number;
+  reason: string;
 }
 
 interface PredictionResult {
@@ -31,13 +40,27 @@ interface PredictionResult {
     longitude: number;
     confidence: number;
     label: string;
+    method: string;
     basedOnDataPoints: number;
-    placeName?: string;
+    alternativePredictions: AlternativePrediction[];
   };
-  totalDataPoints: number;
-  labeledDataPoints: number;
-  availableLabels: string[];
-  transitions: { label: string; count: number }[];
+  context: {
+    currentTime: string;
+    isWeekday: boolean;
+    currentLabel: string | null;
+  };
+  insights: {
+    weekdayPattern: { label: string; count: number }[];
+    weekendPattern: { label: string; count: number }[];
+    commonSequences: { sequence: string; frequency: number }[];
+    topTransitions: { from: string; to: string; frequency: number }[];
+  };
+  stats: {
+    totalDataPoints: number;
+    labeledDataPoints: number;
+    uniqueLabels: number;
+    sequencesLearned: number;
+  };
 }
 
 const quickLabels = ["Home", "Office", "Gym", "Cricket", "College", "Mall", "Restaurant"];
@@ -77,7 +100,6 @@ export default function Predictions() {
       ]);
 
       if (predictionsRes.data) {
-        // Reverse geocode prediction locations
         const withNames = await Promise.all(
           predictionsRes.data.map(async (p) => {
             if (p.label && p.label !== "Unknown" && !p.label.startsWith("~")) {
@@ -171,15 +193,8 @@ export default function Predictions() {
         return;
       }
 
-      // Resolve place name for prediction
-      let predPlaceName = data.prediction.label;
-      if (!predPlaceName || predPlaceName === "Unknown" || predPlaceName.startsWith("~")) {
-        predPlaceName = await reverseGeocode(data.prediction.latitude, data.prediction.longitude);
-      }
-      data.prediction.placeName = predPlaceName;
-
       setLatestPrediction(data);
-      toast.success(`Next: ${predPlaceName} (${Math.round(data.prediction.confidence * 100)}% confidence)`);
+      toast.success(`Next: ${data.prediction.label} (${Math.round(data.prediction.confidence * 100)}% confidence)`);
       fetchData();
     } catch (error) {
       console.error("Prediction error:", error);
@@ -215,13 +230,13 @@ export default function Predictions() {
           </div>
           <div>
             <h1 className="text-base font-bold text-foreground">Predictions</h1>
-            <p className="text-[10px] text-muted-foreground">Log locations & predict next move</p>
+            <p className="text-[10px] text-muted-foreground">AI-powered location prediction engine</p>
           </div>
         </div>
       </motion.div>
 
       <div className="flex-1 overflow-y-auto pb-2">
-        {/* Location Status - show place name */}
+        {/* Location Status */}
         {currentLocation && (
           <div className="px-3 pt-3">
             <Card className="border-accent/30 bg-accent/5">
@@ -257,21 +272,14 @@ export default function Predictions() {
         )}
 
         {/* Log Location Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="px-3 py-3"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="px-3 py-3">
           <Card variant="glass">
             <CardHeader className="pb-2 px-3 pt-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Tag className="w-3.5 h-3.5 text-accent" />
                 Log Current Location
               </CardTitle>
-              <CardDescription className="text-[10px]">
-                Tag where you are now to train predictions
-              </CardDescription>
+              <CardDescription className="text-[10px]">Tag where you are now to train predictions</CardDescription>
             </CardHeader>
             <CardContent className="px-3 pb-3">
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -310,19 +318,14 @@ export default function Predictions() {
         </motion.div>
 
         {/* Predict Button */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="px-3 pb-3"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="px-3 pb-3">
           <Button
             onClick={handlePredictLocation}
             disabled={predicting || !user}
             className="w-full h-12 bg-gradient-prediction text-prediction-foreground font-semibold text-sm rounded-xl shadow-lg"
           >
             {predicting ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Predicting...</>
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Analyzing patterns...</>
             ) : (
               <><Target className="w-4 h-4 mr-2" />{currentLabel ? `Predict Next (from ${currentLabel})` : "Predict My Next Location"}</>
             )}
@@ -331,11 +334,8 @@ export default function Predictions() {
 
         {/* Latest Prediction Result */}
         {latestPrediction && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="px-3 mb-3"
-          >
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="px-3 mb-3 space-y-3">
+            {/* Primary prediction */}
             <Card variant="glass" className="border-prediction/30">
               <CardHeader className="pb-2 px-3 pt-3">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -343,47 +343,139 @@ export default function Predictions() {
                   Prediction Result
                 </CardTitle>
               </CardHeader>
-              <CardContent className="px-3 pb-3">
-                <div className="flex items-center justify-between mb-2">
+              <CardContent className="px-3 pb-3 space-y-3">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-lg font-bold text-foreground capitalize">
-                      {latestPrediction.prediction.placeName || latestPrediction.prediction.label}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Based on {latestPrediction.prediction.basedOnDataPoints} data points
-                    </p>
+                    <p className="text-lg font-bold text-foreground capitalize">{latestPrediction.prediction.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{latestPrediction.prediction.method}</p>
                   </div>
                   <div className={cn("text-2xl font-bold", getConfidenceColor(latestPrediction.prediction.confidence))}>
                     {Math.round(latestPrediction.prediction.confidence * 100)}%
                   </div>
                 </div>
 
-                {latestPrediction.transitions.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-border">
-                    <p className="text-[10px] text-muted-foreground mb-1">Other possibilities:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {latestPrediction.transitions
-                        .filter((t) => t.label !== latestPrediction.prediction.label)
-                        .map((t) => (
-                          <span key={t.label} className="text-[9px] bg-secondary px-2 py-0.5 rounded-full capitalize">
-                            {t.label} ({t.count}x)
+                {/* Context info */}
+                <div className="flex gap-2 text-[9px]">
+                  <span className="bg-secondary px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Clock className="w-2.5 h-2.5" /> {latestPrediction.context.currentTime}
+                  </span>
+                  <span className="bg-secondary px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Calendar className="w-2.5 h-2.5" /> {latestPrediction.context.isWeekday ? "Weekday" : "Weekend"}
+                  </span>
+                  <span className="bg-secondary px-2 py-0.5 rounded-full">
+                    {latestPrediction.stats.labeledDataPoints} data pts
+                  </span>
+                </div>
+
+                {/* Alternative predictions */}
+                {latestPrediction.prediction.alternativePredictions.length > 0 && (
+                  <div className="pt-2 border-t border-border">
+                    <p className="text-[10px] text-muted-foreground mb-1.5">Alternative predictions:</p>
+                    <div className="space-y-1.5">
+                      {latestPrediction.prediction.alternativePredictions.map((alt) => (
+                        <div key={alt.label} className="flex items-center gap-2 bg-secondary/50 rounded-lg p-2">
+                          <MapPin className="w-3 h-3 text-muted-foreground shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-medium capitalize truncate">{alt.label}</p>
+                            <p className="text-[8px] text-muted-foreground truncate">{alt.reason}</p>
+                          </div>
+                          <span className={cn("text-[10px] font-semibold", getConfidenceColor(alt.confidence))}>
+                            {Math.round(alt.confidence * 100)}%
                           </span>
-                        ))}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Insights */}
+            <Card variant="glass">
+              <CardHeader className="pb-2 px-3 pt-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Route className="w-3.5 h-3.5 text-accent" />
+                  Your Routine Patterns
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 pb-3 space-y-3">
+                {/* Common sequences */}
+                {latestPrediction.insights.commonSequences.length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-muted-foreground mb-1">Common sequences:</p>
+                    <div className="space-y-1">
+                      {latestPrediction.insights.commonSequences.map((s, i) => (
+                        <div key={i} className="flex items-center justify-between bg-secondary/50 rounded-lg px-2 py-1.5">
+                          <span className="text-[10px] capitalize">{s.sequence}</span>
+                          <span className="text-[9px] text-muted-foreground">×{s.frequency}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Top transitions */}
+                {latestPrediction.insights.topTransitions.length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-muted-foreground mb-1">Top transitions:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {latestPrediction.insights.topTransitions.map((t, i) => (
+                        <span key={i} className="text-[9px] bg-secondary px-2 py-0.5 rounded-full capitalize flex items-center gap-1">
+                          {t.from} <ArrowRight className="w-2 h-2" /> {t.to} ({t.frequency}x)
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Weekday vs Weekend */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-[9px] text-muted-foreground mb-1">Weekday</p>
+                    {latestPrediction.insights.weekdayPattern.slice(0, 3).map((p) => (
+                      <div key={p.label} className="flex items-center justify-between text-[9px]">
+                        <span className="capitalize truncate">{p.label}</span>
+                        <span className="text-muted-foreground">{p.count}x</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-muted-foreground mb-1">Weekend</p>
+                    {latestPrediction.insights.weekendPattern.slice(0, 3).map((p) => (
+                      <div key={p.label} className="flex items-center justify-between text-[9px]">
+                        <span className="capitalize truncate">{p.label}</span>
+                        <span className="text-muted-foreground">{p.count}x</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-4 gap-1 pt-2 border-t border-border">
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-accent">{latestPrediction.stats.totalDataPoints}</p>
+                    <p className="text-[8px] text-muted-foreground">Total</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-prediction">{latestPrediction.stats.labeledDataPoints}</p>
+                    <p className="text-[8px] text-muted-foreground">Labeled</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-success">{latestPrediction.stats.uniqueLabels}</p>
+                    <p className="text-[8px] text-muted-foreground">Labels</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-warning">{latestPrediction.stats.sequencesLearned}</p>
+                    <p className="text-[8px] text-muted-foreground">Sequences</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </motion.div>
         )}
 
         {/* Prediction Accuracy Graph */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12 }}
-          className="px-3 mb-3"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="px-3 mb-3">
           <Card variant="glass">
             <CardHeader className="pb-2 px-3 pt-3">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -407,10 +499,10 @@ export default function Predictions() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <p className="text-[10px] text-muted-foreground">Recent predictions confidence:</p>
+                    <p className="text-[10px] text-muted-foreground">Recent predictions:</p>
                     {predictions.slice(0, 5).map((p, i) => (
                       <div key={p.id} className="flex items-center gap-2">
-                        <span className="text-[9px] text-muted-foreground w-20 truncate capitalize">{p.placeName || p.label || "?"}</span>
+                        <span className="text-[9px] text-muted-foreground w-16 truncate capitalize">{p.placeName || p.label || "?"}</span>
                         <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
                           <motion.div
                             initial={{ width: 0 }}
@@ -450,12 +542,7 @@ export default function Predictions() {
         </motion.div>
 
         {/* Recent Predictions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="px-3"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="px-3">
           <Card variant="glass">
             <CardHeader className="pb-2 px-3 pt-3">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -491,8 +578,8 @@ export default function Predictions() {
                         <p className="text-xs font-medium text-foreground truncate capitalize">
                           {prediction.placeName || prediction.label || "Unknown"}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {new Date(prediction.prediction_timestamp).toLocaleString()}
+                        <p className="text-[9px] text-muted-foreground truncate">
+                          {prediction.prediction_method || new Date(prediction.prediction_timestamp).toLocaleString()}
                         </p>
                       </div>
                       <div className={cn("text-xs font-semibold", getConfidenceColor(prediction.confidence))}>
