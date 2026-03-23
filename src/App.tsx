@@ -15,6 +15,8 @@ import SOS from "./pages/SOS";
 import Predictions from "./pages/Predictions";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import LocationHistory from "./pages/LocationHistory";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +60,8 @@ function AppRoutes() {
         <Route path="/assistant" element={<ProtectedRoute><Assistant /></ProtectedRoute>} />
         <Route path="/stays" element={<ProtectedRoute><Stays /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/location-history" element={<ProtectedRoute><LocationHistory /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AnimatePresence>

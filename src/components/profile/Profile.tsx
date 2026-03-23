@@ -139,36 +139,20 @@ export function Profile() {
     toast.info("Manage your emergency contacts in the SOS tab");
   };
 
-  const handleLocationHistory = async () => {
-    const { data, error } = await supabase
-      .from("location_logs")
-      .select("*")
-      .eq("user_id", user?.id)
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    if (error) {
-      toast.error("Failed to fetch location history");
-      return;
-    }
-
-    if (!data || data.length === 0) {
-      toast.info("No location history yet. Start tracking to see your history.");
-    } else {
-      toast.success(`Found ${stats.locations} location logs. Latest: ${new Date(data[0].created_at).toLocaleString()}`);
-    }
+  const handleLocationHistory = () => {
+    navigate("/location-history");
   };
 
   const handlePrivacySettings = () => {
-    toast.info("Privacy settings: Your location data is stored securely and only visible to you.");
+    navigate("/settings?section=privacy");
   };
 
   const handleDeviceSettings = () => {
-    toast.info("For best GPS accuracy, ensure Location Services is enabled in your device settings.");
+    navigate("/settings?section=device");
   };
 
   const handleHelpSupport = () => {
-    toast.info("Need help? Contact us at support@safetrack.app");
+    navigate("/settings?section=help");
   };
 
   const handleNotificationsToggle = (checked: boolean) => {
@@ -178,7 +162,15 @@ export function Profile() {
 
   const handleDarkModeToggle = (checked: boolean) => {
     setDarkMode(checked);
-    // In a real app, you'd toggle the theme here
+    if (checked) {
+      document.documentElement.classList.add("dark");
+      document.documentElement.classList.remove("light");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.classList.add("light");
+      localStorage.setItem("theme", "light");
+    }
     toast.success(checked ? "Dark mode enabled" : "Light mode enabled");
   };
 
