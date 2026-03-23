@@ -60,6 +60,8 @@ function AppRoutes() {
         <Route path="/assistant" element={<ProtectedRoute><Assistant /></ProtectedRoute>} />
         <Route path="/stays" element={<ProtectedRoute><Stays /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/location-history" element={<ProtectedRoute><LocationHistory /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AnimatePresence>
