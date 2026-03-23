@@ -47,6 +47,92 @@ interface PredictionCandidate {
   lng: number;
 }
 
+interface TouristSuggestion {
+  name: string;
+  type: string;
+  category: string;
+  latitude: number;
+  longitude: number;
+  rating: number;
+  reason: string;
+}
+
+// Haversine distance in km
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getTimeContext(hour: number): { period: string; suggestion: string } {
+  if (hour >= 6 && hour < 9) return { period: "early morning", suggestion: "breakfast spots, cafes, parks for morning walk" };
+  if (hour >= 9 && hour < 12) return { period: "morning", suggestion: "cafes, tourist attractions, museums, temples" };
+  if (hour >= 12 && hour < 14) return { period: "lunch time", suggestion: "restaurants, food courts, local eateries, biryani places" };
+  if (hour >= 14 && hour < 17) return { period: "afternoon", suggestion: "shopping malls, tourist spots, monuments, parks" };
+  if (hour >= 17 && hour < 20) return { period: "evening", suggestion: "restaurants for dinner, street food, entertainment, movies" };
+  if (hour >= 20 && hour < 23) return { period: "night", suggestion: "restaurants, dessert places, night markets, lounges" };
+  return { period: "late night", suggestion: "24hr restaurants, hotels, late-night cafes" };
+}
+
+async function getTouristSuggestions(lat: number, lng: number, hour: number): Promise<TouristSuggestion[]> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    console.error("LOVABLE_API_KEY not configured for tourist mode");
+    return [];
+  }
+
+  const timeCtx = getTimeContext(hour);
+
+  const prompt = `You are a local travel guide. Given GPS coordinates (${lat}, ${lng}) and the current time is ${timeCtx.period} (around ${hour}:00), suggest 5-8 REAL nearby places that would be most relevant right now.
+
+Focus on: ${timeCtx.suggestion}
+
+Return ONLY a JSON array, no extra text:
+[
+  {
+    "name": "Real Place Name",
+    "type": "restaurant" | "cafe" | "attraction" | "park" | "mall" | "temple" | "entertainment",
+    "category": "specific category like South Indian Restaurant, Historical Fort, etc",
+    "latitude": number (realistic nearby coordinate),
+    "longitude": number (realistic nearby coordinate),
+    "rating": number (1-5),
+    "reason": "Why this is good to visit right now at ${timeCtx.period}"
+  }
+]
+
+Use REAL place names near these coordinates. Keep within 10km radius.`;
+
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("AI API error for tourist mode:", response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    let content = data.choices?.[0]?.message?.content || "[]";
+    content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+    return JSON.parse(content);
+  } catch (err) {
+    console.error("Tourist suggestion error:", err);
+    return [];
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -73,12 +159,16 @@ serve(async (req) => {
     let currentHour = new Date().getHours();
     let currentDay = new Date().getDay();
     let currentLabel: string | null = null;
+    let currentLat: number | null = null;
+    let currentLng: number | null = null;
 
     try {
       const body = await req.json();
       if (body.hour !== undefined) currentHour = body.hour;
       if (body.day !== undefined) currentDay = body.day;
       if (body.currentLabel) currentLabel = body.currentLabel;
+      if (body.latitude !== undefined) currentLat = body.latitude;
+      if (body.longitude !== undefined) currentLng = body.longitude;
     } catch { /* use defaults */ }
 
     const isWeekday = currentDay >= 1 && currentDay <= 5;
@@ -93,6 +183,110 @@ serve(async (req) => {
 
     if (logsError) throw new Error(`Failed to fetch location logs: ${logsError.message}`);
 
+    const labeledLogs = (locationLogs || []).filter((l: LocationLog) => l.label);
+
+    // === TOURIST MODE DETECTION ===
+    // If user has no label set AND their current coords don't match any known labeled place (>1km away from all),
+    // they're in "tourist mode" - suggest nearby places based on time of day
+    let isTouristMode = false;
+    const KNOWN_PLACE_RADIUS_KM = 1.0;
+
+    if (!currentLabel && currentLat !== null && currentLng !== null && labeledLogs.length > 0) {
+      // Build label averages
+      const labelAvgs: Record<string, { lat: number; lng: number; count: number }> = {};
+      for (const log of labeledLogs) {
+        const lbl = log.label!.toLowerCase().trim();
+        if (!labelAvgs[lbl]) labelAvgs[lbl] = { lat: 0, lng: 0, count: 0 };
+        labelAvgs[lbl].lat += log.latitude;
+        labelAvgs[lbl].lng += log.longitude;
+        labelAvgs[lbl].count++;
+      }
+
+      let nearestKnownDist = Infinity;
+      let nearestLabel: string | null = null;
+      for (const [lbl, avg] of Object.entries(labelAvgs)) {
+        const avgLat = avg.lat / avg.count;
+        const avgLng = avg.lng / avg.count;
+        const dist = haversineKm(currentLat, currentLng, avgLat, avgLng);
+        if (dist < nearestKnownDist) {
+          nearestKnownDist = dist;
+          nearestLabel = lbl;
+        }
+      }
+
+      if (nearestKnownDist > KNOWN_PLACE_RADIUS_KM) {
+        // User is far from all known places → tourist mode
+        isTouristMode = true;
+      } else if (nearestLabel) {
+        // Auto-detect current label from proximity
+        currentLabel = nearestLabel;
+      }
+    }
+
+    // Also tourist mode if no labeled logs at all but user has coordinates
+    if (labeledLogs.length < 2 && currentLat !== null && currentLng !== null) {
+      isTouristMode = true;
+    }
+
+    // === TOURIST MODE RESPONSE ===
+    if (isTouristMode && currentLat !== null && currentLng !== null) {
+      const timeCtx = getTimeContext(currentHour);
+      const suggestions = await getTouristSuggestions(currentLat, currentLng, currentHour);
+
+      // Save a tourist-mode prediction
+      if (suggestions.length > 0) {
+        await supabase.from("predictions").insert({
+          user_id: user.id,
+          predicted_lat: suggestions[0].latitude,
+          predicted_lng: suggestions[0].longitude,
+          confidence: 0.7,
+          label: suggestions[0].name,
+          prediction_method: `Tourist mode: ${timeCtx.period} suggestions`,
+          prediction_timestamp: new Date().toISOString(),
+        });
+      }
+
+      return new Response(JSON.stringify({
+        mode: "tourist",
+        prediction: {
+          label: suggestions.length > 0 ? suggestions[0].name : `Explore ${timeCtx.suggestion}`,
+          latitude: suggestions.length > 0 ? suggestions[0].latitude : currentLat,
+          longitude: suggestions.length > 0 ? suggestions[0].longitude : currentLng,
+          confidence: 0.7,
+          method: `Tourist mode: ${timeCtx.period} - ${timeCtx.suggestion}`,
+          basedOnDataPoints: labeledLogs.length,
+          alternativePredictions: suggestions.slice(1, 4).map(s => ({
+            label: s.name,
+            latitude: s.latitude,
+            longitude: s.longitude,
+            confidence: 0.65,
+            reason: s.reason,
+          })),
+        },
+        touristSuggestions: suggestions,
+        context: {
+          currentTime: `${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][currentDay]} ${currentHour}:00`,
+          isWeekday,
+          currentLabel: null,
+          timePeriod: timeCtx.period,
+          suggestionType: timeCtx.suggestion,
+        },
+        insights: {
+          weekdayPattern: [],
+          weekendPattern: [],
+          commonSequences: [],
+          topTransitions: [],
+        },
+        stats: {
+          totalDataPoints: locationLogs?.length || 0,
+          labeledDataPoints: labeledLogs.length,
+          uniqueLabels: 0,
+          sequencesLearned: 0,
+        },
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // === REGULAR CHAIN-BASED PREDICTION ===
     if (!locationLogs || locationLogs.length < 3) {
       return new Response(JSON.stringify({
         error: "Not enough location data",
@@ -100,8 +294,6 @@ serve(async (req) => {
         dataPoints: locationLogs?.length || 0,
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    const labeledLogs = locationLogs.filter((l: LocationLog) => l.label);
 
     if (labeledLogs.length < 2) {
       return new Response(JSON.stringify({
@@ -138,7 +330,7 @@ serve(async (req) => {
     for (let i = 0; i < labeledLogs.length - 1; i++) {
       const from = labeledLogs[i].label!.toLowerCase().trim();
       const to = labeledLogs[i + 1].label!.toLowerCase().trim();
-      if (from === to) continue; // skip self-transitions
+      if (from === to) continue;
 
       if (!transitions[from]) transitions[from] = {};
       if (!transitions[from][to]) {
@@ -148,7 +340,6 @@ serve(async (req) => {
       t.count++;
       t.dayOfWeek[labeledLogs[i].day] = (t.dayOfWeek[labeledLogs[i].day] || 0) + 1;
       t.hourOfDay[labeledLogs[i].hour] = (t.hourOfDay[labeledLogs[i].hour] || 0) + 1;
-
       const timeDiff = new Date(labeledLogs[i + 1].created_at).getTime() - new Date(labeledLogs[i].created_at).getTime();
       t.totalTimeDiff += timeDiff;
     }
@@ -158,9 +349,7 @@ serve(async (req) => {
     for (let seqLen = 3; seqLen <= Math.min(5, labeledLogs.length); seqLen++) {
       for (let i = 0; i <= labeledLogs.length - seqLen; i++) {
         const seq = labeledLogs.slice(i, i + seqLen).map(l => l.label!.toLowerCase().trim());
-        // Skip if has consecutive duplicates
         if (seq.some((s, idx) => idx > 0 && s === seq[idx - 1])) continue;
-
         const key = seq.join(" → ");
         if (!sequenceCounts[key]) {
           sequenceCounts[key] = { sequence: seq, count: 0, weekdayCount: 0, weekendCount: 0 };
@@ -172,7 +361,6 @@ serve(async (req) => {
       }
     }
 
-    // Filter to sequences seen at least twice
     const significantSequences = Object.values(sequenceCounts).filter(s => s.count >= 2);
     significantSequences.sort((a, b) => b.count - a.count);
 
@@ -189,13 +377,7 @@ serve(async (req) => {
           const dayMatch = isWeekday ? sp.weekdayCount / Math.max(1, sp.count) : sp.weekendCount / Math.max(1, sp.count);
           const confidence = Math.min(0.95, (sp.count / 20) * dayMatch + 0.5);
           const coords = getLabelCoords(nextLabel);
-          candidates.push({
-            label: nextLabel,
-            confidence,
-            method: `Sequence pattern: ${sp.sequence.join(" → ")}`,
-            lat: coords.lat,
-            lng: coords.lng,
-          });
+          candidates.push({ label: nextLabel, confidence, method: `Sequence pattern: ${sp.sequence.join(" → ")}`, lat: coords.lat, lng: coords.lng });
         }
       }
     }
@@ -204,24 +386,14 @@ serve(async (req) => {
     if (normalizedCurrent && transitions[normalizedCurrent]) {
       const fromTransitions = transitions[normalizedCurrent];
       const totalFromCount = Object.values(fromTransitions).reduce((s, t) => s + t.count, 0);
-
       for (const [toLabel, info] of Object.entries(fromTransitions)) {
         let confidence = Math.min(0.9, info.count / totalFromCount + 0.3);
-        // Boost for matching day
         const dayBoost = (info.dayOfWeek[currentDay] || 0) / Math.max(1, info.count);
         confidence = Math.min(0.9, confidence + dayBoost * 0.1);
-        // Boost for matching hour
         const hourBoost = (info.hourOfDay[currentHour] || 0) / Math.max(1, info.count);
         confidence = Math.min(0.9, confidence + hourBoost * 0.1);
-
         const coords = getLabelCoords(toLabel);
-        candidates.push({
-          label: toLabel,
-          confidence,
-          method: `Transition: ${normalizedCurrent} → ${toLabel} (${info.count} times)`,
-          lat: coords.lat,
-          lng: coords.lng,
-        });
+        candidates.push({ label: toLabel, confidence, method: `Transition: ${normalizedCurrent} → ${toLabel} (${info.count} times)`, lat: coords.lat, lng: coords.lng });
       }
     }
 
@@ -231,57 +403,32 @@ serve(async (req) => {
     const timeKeyCurrent = `${currentDay}-${currentHour}`;
     const timeLabelCounts: Record<string, number> = {};
     let totalTimeMatches = 0;
-
     for (const [lbl, pattern] of Object.entries(labelPatterns)) {
       const count = (pattern.dayHourFrequency[timeKey] || 0) + (pattern.dayHourFrequency[timeKeyCurrent] || 0);
-      if (count > 0) {
-        timeLabelCounts[lbl] = count;
-        totalTimeMatches += count;
-      }
+      if (count > 0) { timeLabelCounts[lbl] = count; totalTimeMatches += count; }
     }
-
     for (const [lbl, count] of Object.entries(timeLabelCounts)) {
       const confidence = Math.min(0.85, count / totalTimeMatches + 0.2);
       const coords = getLabelCoords(lbl);
-      candidates.push({
-        label: lbl,
-        confidence,
-        method: `Time pattern: ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][currentDay]} ~${currentHour}:00`,
-        lat: coords.lat,
-        lng: coords.lng,
-      });
+      candidates.push({ label: lbl, confidence, method: `Time pattern: ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][currentDay]} ~${currentHour}:00`, lat: coords.lat, lng: coords.lng });
     }
 
-    // Method 4: Day pattern (weekday vs weekend)
+    // Method 4: Day pattern
     const dayPatternCounts: Record<string, number> = {};
     let totalDayMatches = 0;
     for (const [lbl, pattern] of Object.entries(labelPatterns)) {
       let score = 0;
-      if (isWeekday) {
-        for (let d = 1; d <= 5; d++) score += (pattern.dayFrequency[d] || 0);
-      } else {
-        score += (pattern.dayFrequency[0] || 0) + (pattern.dayFrequency[6] || 0);
-      }
-      if (score > 0) {
-        dayPatternCounts[lbl] = score;
-        totalDayMatches += score;
-      }
+      if (isWeekday) { for (let d = 1; d <= 5; d++) score += (pattern.dayFrequency[d] || 0); }
+      else { score += (pattern.dayFrequency[0] || 0) + (pattern.dayFrequency[6] || 0); }
+      if (score > 0) { dayPatternCounts[lbl] = score; totalDayMatches += score; }
     }
-
     for (const [lbl, score] of Object.entries(dayPatternCounts)) {
       const confidence = Math.min(0.75, score / (totalDayMatches * 10) + 0.3);
       const coords = getLabelCoords(lbl);
-      candidates.push({
-        label: lbl,
-        confidence,
-        method: `Day pattern: ${isWeekday ? "Weekday" : "Weekend"} routine`,
-        lat: coords.lat,
-        lng: coords.lng,
-      });
+      candidates.push({ label: lbl, confidence, method: `Day pattern: ${isWeekday ? "Weekday" : "Weekend"} routine`, lat: coords.lat, lng: coords.lng });
     }
 
     // === Step 5: Rank and deduplicate ===
-    // Group by label, keep highest confidence per label
     const bestByLabel: Record<string, PredictionCandidate> = {};
     for (const c of candidates) {
       if (!bestByLabel[c.label] || c.confidence > bestByLabel[c.label].confidence) {
@@ -290,23 +437,15 @@ serve(async (req) => {
     }
 
     const ranked = Object.values(bestByLabel).sort((a, b) => b.confidence - a.confidence);
-    const winner = ranked[0] || null;
 
-    if (!winner) {
-      // Absolute fallback: most common label
+    if (ranked.length === 0) {
       let maxLbl = "";
       let maxCount = 0;
       for (const [lbl, p] of Object.entries(labelPatterns)) {
         if (p.count > maxCount) { maxCount = p.count; maxLbl = lbl; }
       }
       const coords = getLabelCoords(maxLbl);
-      ranked.push({
-        label: maxLbl,
-        confidence: Math.min(0.5, maxCount / labeledLogs.length),
-        method: "Most visited location",
-        lat: coords.lat,
-        lng: coords.lng,
-      });
+      ranked.push({ label: maxLbl, confidence: Math.min(0.5, maxCount / labeledLogs.length), method: "Most visited location", lat: coords.lat, lng: coords.lng });
     }
 
     const primary = ranked[0];
@@ -350,6 +489,7 @@ serve(async (req) => {
     }));
 
     return new Response(JSON.stringify({
+      mode: "routine",
       prediction: {
         label: primary.label,
         latitude: primary.lat,
@@ -358,11 +498,7 @@ serve(async (req) => {
         method: primary.method,
         basedOnDataPoints: labeledLogs.length,
         alternativePredictions: alternatives.map(a => ({
-          label: a.label,
-          latitude: a.lat,
-          longitude: a.lng,
-          confidence: a.confidence,
-          reason: a.method,
+          label: a.label, latitude: a.lat, longitude: a.lng, confidence: a.confidence, reason: a.method,
         })),
       },
       context: {
