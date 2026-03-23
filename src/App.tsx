@@ -15,6 +15,8 @@ import SOS from "./pages/SOS";
 import Predictions from "./pages/Predictions";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import LocationHistory from "./pages/LocationHistory";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
